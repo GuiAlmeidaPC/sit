@@ -17,6 +17,7 @@ import com.sit.service.TimerService
 import com.sit.ui.active.ActiveRunScreen
 import com.sit.ui.setup.SetupScreen
 import com.sit.ui.setup.SetupViewModel
+import com.sit.ui.summary.SummaryScreen
 import com.sit.ui.theme.SitTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +47,11 @@ class MainActivity : ComponentActivity() {
                         onThemeChange = setupViewModel::setTheme,
                         onStart = { TimerService.start(this@MainActivity, setup.config) },
                     )
-                    else -> ActiveRunScreen(
+                    RunPhase.COMPLETED -> SummaryScreen(
+                        state = run,
+                        onDone = { RunStateHolder.reset() },
+                    )
+                    RunPhase.RUNNING, RunPhase.PAUSED -> ActiveRunScreen(
                         state = run,
                         onTogglePause = { TimerService.togglePause(this@MainActivity) },
                         onStop = { TimerService.stop(this@MainActivity) },

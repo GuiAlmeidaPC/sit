@@ -14,7 +14,6 @@ import com.sit.domain.WorkoutConfig
 import com.sit.domain.WorkoutPlanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
@@ -147,12 +146,33 @@ class TimerService : Service() {
     }
 
     override fun onDestroy() {
+        // Defensive path: covers system-initiated destruction (low memory,
+        // task removed) on top of the explicit teardown in stopWorkout /
+        // handleComplete, so we never leak a ghost notification or audio
+        // focus past the service's lifetime.
         engine?.stop()
         engine = null
         audio?.release()
         audio = null
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Throwable) {
+            // Already stopped — ignore.
+        }
+        if (RunStateHolder.state.value.phase == RunPhase.RUNNING ||
+            RunStateHolder.state.value.phase == RunPhase.PAUSED
+        ) {
+            RunStateHolder.reset()
+        }
         scope.cancel()
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // User swiped the app away — tear the workout down so we don't keep
+        // running silently with no UI surface.
+        stopWorkout()
+        super.onTaskRemoved(rootIntent)
     }
 
     companion object {

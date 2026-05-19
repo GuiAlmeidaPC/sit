@@ -158,10 +158,28 @@ fun SetupScreen(
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    TimePickerRow(strings.totalWorkoutLabel, state.config.totalSec, step = 30, onTotalSecChange)
+                    TimePickerRow(
+                        label = strings.totalWorkoutLabel,
+                        valueSec = state.config.totalSec,
+                        step = 60,
+                        mode = TimeEditorMode.HOURS_MINUTES,
+                        onChange = onTotalSecChange,
+                    )
                     SprintCountRow(strings.sprintsLabel, state.config.sprints, onSprintsChange)
-                    TimePickerRow(strings.sprintLabel, state.config.sprintSec, step = 5, onSprintSecChange)
-                    TimePickerRow(strings.restLabel, state.config.restSec, step = 5, onRestSecChange)
+                    TimePickerRow(
+                        label = strings.sprintLabel,
+                        valueSec = state.config.sprintSec,
+                        step = 5,
+                        mode = TimeEditorMode.MINUTES_SECONDS,
+                        onChange = onSprintSecChange,
+                    )
+                    TimePickerRow(
+                        label = strings.restLabel,
+                        valueSec = state.config.restSec,
+                        step = 5,
+                        mode = TimeEditorMode.MINUTES_SECONDS,
+                        onChange = onRestSecChange,
+                    )
 
                     InfoCard(state.config, state.validation)
 
@@ -307,16 +325,23 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun TimePickerRow(label: String, valueSec: Int, step: Int, onChange: (Int) -> Unit) {
-    val onTimeChange: (Int) -> Unit = { onChange(it.coerceIn(0, maxTimeValueSec)) }
+private fun TimePickerRow(
+    label: String,
+    valueSec: Int,
+    step: Int,
+    mode: TimeEditorMode,
+    onChange: (Int) -> Unit,
+) {
+    val onTimeChange: (Int) -> Unit = { onChange(normalizeTimeValue(it, mode)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
         TimeStepper(
             label = label,
             valueSec = valueSec,
+            mode = mode,
             onValueSubmit = onTimeChange,
             onDec = { onTimeChange((valueSec - step).coerceAtLeast(0)) },
-            onInc = { onTimeChange((valueSec + step).coerceAtMost(maxTimeValueSec)) },
+            onInc = { onTimeChange(valueSec + step) },
         )
     }
 }
@@ -338,6 +363,7 @@ private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
 private fun TimeStepper(
     label: String,
     valueSec: Int,
+    mode: TimeEditorMode,
     onValueSubmit: (Int) -> Unit,
     onDec: () -> Unit,
     onInc: () -> Unit,
@@ -351,8 +377,9 @@ private fun TimeStepper(
     var secondField by remember { mutableStateOf(TextFieldValue("00")) }
 
     LaunchedEffect(valueSec, activePart) {
-        val formattedMinutes = formatTwoDigits((valueSec.coerceIn(0, maxTimeValueSec) / 60).coerceIn(0, 99))
-        val formattedSeconds = formatTwoDigits(valueSec.coerceIn(0, maxTimeValueSec) % 60)
+        val (primaryValue, secondaryValue) = splitTimeValue(normalizeTimeValue(valueSec, mode), mode)
+        val formattedMinutes = formatTwoDigits(primaryValue)
+        val formattedSeconds = formatTwoDigits(secondaryValue)
         if (activePart != TimePart.MINUTES) {
             minuteField = TextFieldValue(formattedMinutes, TextRange(formattedMinutes.length))
         }
@@ -365,7 +392,8 @@ private fun TimeStepper(
         StepperButton(icon = Icons.Filled.Remove, contentDescription = strings.decreaseLabel, onClick = onDec)
         StepperValueArea {
             TimeSegmentField(
-                label = "$label minutes",
+                label = "$label ${mode.primaryLabel.accessibilityName}",
+                unitLabel = mode.primaryLabel.shortLabel,
                 value = minuteField,
                 isFocused = activePart == TimePart.MINUTES,
                 focusRequester = minuteFocusRequester,
@@ -376,13 +404,13 @@ private fun TimeStepper(
                 },
                 onBlurred = {
                     activePart = null
-                    val normalized = formatTwoDigits(parseMinutesPart(minuteField.text))
+                    val normalized = formatTwoDigits(parsePrimaryPart(minuteField.text))
                     minuteField = TextFieldValue(normalized, TextRange(normalized.length))
                 },
                 onValueChange = { updated ->
-                    val sanitized = sanitizeMinuteInput(updated.text)
+                    val sanitized = sanitizePrimaryInput(updated.text)
                     minuteField = TextFieldValue(sanitized, TextRange(sanitized.length))
-                    onValueSubmit(combineTimeParts(sanitized, secondField.text))
+                    onValueSubmit(combineTimeParts(sanitized, secondField.text, mode))
                     if (sanitized.length == 2) {
                         secondFocusRequester.requestFocus()
                     }
@@ -399,7 +427,8 @@ private fun TimeStepper(
                 color = MaterialTheme.colorScheme.onBackground,
             )
             TimeSegmentField(
-                label = "$label seconds",
+                label = "$label ${mode.secondaryLabel.accessibilityName}",
+                unitLabel = mode.secondaryLabel.shortLabel,
                 value = secondField,
                 isFocused = activePart == TimePart.SECONDS,
                 focusRequester = secondFocusRequester,
@@ -410,13 +439,13 @@ private fun TimeStepper(
                 },
                 onBlurred = {
                     activePart = null
-                    val normalized = formatTwoDigits(parseSecondsPart(secondField.text))
+                    val normalized = formatTwoDigits(parseSecondaryPart(secondField.text))
                     secondField = TextFieldValue(normalized, TextRange(normalized.length))
                 },
                 onValueChange = { updated ->
-                    val sanitized = sanitizeSecondInput(updated.text)
+                    val sanitized = sanitizeSecondaryInput(updated.text)
                     secondField = TextFieldValue(sanitized, TextRange(sanitized.length))
-                    onValueSubmit(combineTimeParts(minuteField.text, sanitized))
+                    onValueSubmit(combineTimeParts(minuteField.text, sanitized, mode))
                 },
                 keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             )
@@ -428,6 +457,7 @@ private fun TimeStepper(
 @Composable
 private fun TimeSegmentField(
     label: String,
+    unitLabel: String,
     value: TextFieldValue,
     isFocused: Boolean,
     focusRequester: FocusRequester,
@@ -486,7 +516,17 @@ private fun TimeSegmentField(
                         .semantics { contentDescription = label },
                     contentAlignment = Alignment.Center,
                 ) {
-                    innerTextField()
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        innerTextField()
+                        Text(
+                            text = unitLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                        )
+                    }
                 }
             },
         )
@@ -838,31 +878,74 @@ private val languageChipWidth = 104.dp
 private val selectorButtonWidth = 72.dp
 private val selectorButtonHeight = 76.dp
 private val stepperEditorWidth = 120.dp
-private val stepperEditorHeight = 48.dp
+private val stepperEditorHeight = 58.dp
 private val timeSegmentWidth = 48.dp
 private val numberSegmentWidth = 64.dp
 
-private const val maxTimeValueSec = (99 * 60) + 59
+private const val maxMinutesSecondsValueSec = (99 * 60) + 59
+private const val maxHoursMinutesValueSec = (99 * 3600) + (59 * 60)
 
 private enum class TimePart {
     MINUTES,
     SECONDS,
 }
 
-private fun sanitizeMinuteInput(text: String): String {
+private enum class TimeLabel(val shortLabel: String, val accessibilityName: String) {
+    HOURS("hr", "hours"),
+    MINUTES("min", "minutes"),
+    SECONDS("sec", "seconds"),
+}
+
+private enum class TimeEditorMode(
+    val primaryLabel: TimeLabel,
+    val secondaryLabel: TimeLabel,
+) {
+    HOURS_MINUTES(TimeLabel.HOURS, TimeLabel.MINUTES),
+    MINUTES_SECONDS(TimeLabel.MINUTES, TimeLabel.SECONDS),
+}
+
+private fun sanitizePrimaryInput(text: String): String {
     return text.filter(Char::isDigit).take(2)
 }
 
-private fun sanitizeSecondInput(text: String): String {
+private fun sanitizeSecondaryInput(text: String): String {
     return text.filter(Char::isDigit).take(2)
 }
 
-private fun parseMinutesPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 99) ?: 0
+private fun parsePrimaryPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 99) ?: 0
 
-private fun parseSecondsPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 59) ?: 0
+private fun parseSecondaryPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 59) ?: 0
 
-private fun combineTimeParts(minutesText: String, secondsText: String): Int =
-    (parseMinutesPart(minutesText) * 60) + parseSecondsPart(secondsText)
+private fun combineTimeParts(primaryText: String, secondaryText: String, mode: TimeEditorMode): Int {
+    val primary = parsePrimaryPart(primaryText)
+    val secondary = parseSecondaryPart(secondaryText)
+    val valueSec = when (mode) {
+        TimeEditorMode.HOURS_MINUTES -> (primary * 3600) + (secondary * 60)
+        TimeEditorMode.MINUTES_SECONDS -> (primary * 60) + secondary
+    }
+    return normalizeTimeValue(valueSec, mode)
+}
+
+private fun splitTimeValue(valueSec: Int, mode: TimeEditorMode): Pair<Int, Int> {
+    val normalizedValue = normalizeTimeValue(valueSec, mode)
+    return when (mode) {
+        TimeEditorMode.HOURS_MINUTES -> (normalizedValue / 3600) to ((normalizedValue % 3600) / 60)
+        TimeEditorMode.MINUTES_SECONDS -> (normalizedValue / 60) to (normalizedValue % 60)
+    }
+}
+
+private fun normalizeTimeValue(valueSec: Int, mode: TimeEditorMode): Int {
+    val clamped = valueSec.coerceAtLeast(0).coerceAtMost(
+        when (mode) {
+            TimeEditorMode.HOURS_MINUTES -> maxHoursMinutesValueSec
+            TimeEditorMode.MINUTES_SECONDS -> maxMinutesSecondsValueSec
+        }
+    )
+    return when (mode) {
+        TimeEditorMode.HOURS_MINUTES -> (clamped / 60) * 60
+        TimeEditorMode.MINUTES_SECONDS -> clamped
+    }
+}
 
 private fun formatTwoDigits(value: Int): String = value.coerceIn(0, 99).toString().padStart(2, '0')
 

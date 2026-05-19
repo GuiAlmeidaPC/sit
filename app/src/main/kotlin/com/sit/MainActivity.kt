@@ -8,9 +8,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sit.i18n.LocalAppStrings
+import com.sit.i18n.stringsFor
 import com.sit.service.RunPhase
 import com.sit.service.RunStateHolder
 import com.sit.service.TimerService
@@ -35,27 +39,31 @@ class MainActivity : ComponentActivity() {
         setContent {
             val setup by setupViewModel.state.collectAsStateWithLifecycle()
             val run by RunStateHolder.state.collectAsStateWithLifecycle()
-            SitTheme(theme = setup.theme) {
-                when (run.phase) {
-                    RunPhase.IDLE -> SetupScreen(
-                        state = setup,
-                        onTotalSecChange = setupViewModel::setTotalSec,
-                        onSprintsChange = setupViewModel::setSprints,
-                        onSprintSecChange = setupViewModel::setSprintSec,
-                        onRestSecChange = setupViewModel::setRestSec,
-                        onAudioChange = setupViewModel::setAudio,
-                        onThemeChange = setupViewModel::setTheme,
-                        onStart = { TimerService.start(this@MainActivity, setup.config) },
-                    )
-                    RunPhase.COMPLETED -> SummaryScreen(
-                        state = run,
-                        onDone = { RunStateHolder.reset() },
-                    )
-                    RunPhase.RUNNING, RunPhase.PAUSED -> ActiveRunScreen(
-                        state = run,
-                        onTogglePause = { TimerService.togglePause(this@MainActivity) },
-                        onStop = { TimerService.stop(this@MainActivity) },
-                    )
+            val strings = remember(setup.language) { stringsFor(setup.language) }
+            CompositionLocalProvider(LocalAppStrings provides strings) {
+                SitTheme(theme = setup.theme) {
+                    when (run.phase) {
+                        RunPhase.IDLE -> SetupScreen(
+                            state = setup,
+                            onTotalSecChange = setupViewModel::setTotalSec,
+                            onSprintsChange = setupViewModel::setSprints,
+                            onSprintSecChange = setupViewModel::setSprintSec,
+                            onRestSecChange = setupViewModel::setRestSec,
+                            onAudioChange = setupViewModel::setAudio,
+                            onThemeChange = setupViewModel::setTheme,
+                            onLanguageChange = setupViewModel::setLanguage,
+                            onStart = { TimerService.start(this@MainActivity, setup.config, setup.language) },
+                        )
+                        RunPhase.COMPLETED -> SummaryScreen(
+                            state = run,
+                            onDone = { RunStateHolder.reset() },
+                        )
+                        RunPhase.RUNNING, RunPhase.PAUSED -> ActiveRunScreen(
+                            state = run,
+                            onTogglePause = { TimerService.togglePause(this@MainActivity) },
+                            onStop = { TimerService.stop(this@MainActivity) },
+                        )
+                    }
                 }
             }
         }

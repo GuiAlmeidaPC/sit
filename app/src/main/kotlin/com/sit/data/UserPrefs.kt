@@ -1,5 +1,6 @@
 package com.sit.data
 
+import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.WorkoutConfig
@@ -7,6 +8,7 @@ import com.sit.domain.WorkoutConfig
 data class UserPrefs(
     val config: WorkoutConfig,
     val theme: AppTheme,
+    val language: AppLanguage,
 ) {
     companion object {
         val DEFAULT = UserPrefs(
@@ -18,6 +20,7 @@ data class UserPrefs(
                 audio = AudioTrack.DOG_BARKING,
             ),
             theme = AppTheme.CLASSIC,
+            language = AppLanguage.ENGLISH,
         )
     }
 }

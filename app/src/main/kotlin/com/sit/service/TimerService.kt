@@ -8,6 +8,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import com.sit.audio.AudioController
+import com.sit.domain.AppLanguage
 import com.sit.domain.AudioTrack
 import com.sit.domain.IntervalType
 import com.sit.domain.WorkoutConfig
@@ -23,6 +24,7 @@ class TimerService : Service() {
     private var engine: WorkoutEngine? = null
     private val binder = LocalBinder()
     private var audio: AudioController? = null
+    private var appLanguage: AppLanguage = AppLanguage.ENGLISH
     private var audioTrack: AudioTrack = AudioTrack.DOG_BARKING
     private var lastIntervalType: IntervalType? = null
 
@@ -32,7 +34,6 @@ class TimerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        NotificationHelper.ensureChannel(this)
         audio = AudioController(applicationContext)
     }
 
@@ -49,6 +50,9 @@ class TimerService : Service() {
 
     private fun startWorkout(intent: Intent) {
         if (engine != null) return
+        appLanguage = runCatching {
+            AppLanguage.valueOf(intent.getStringExtra(EXTRA_LANGUAGE) ?: AppLanguage.ENGLISH.name)
+        }.getOrDefault(AppLanguage.ENGLISH)
         val config = WorkoutConfig(
             totalSec = intent.getIntExtra(EXTRA_TOTAL_SEC, 0),
             sprints = intent.getIntExtra(EXTRA_SPRINTS, 0),
@@ -65,6 +69,7 @@ class TimerService : Service() {
         audioTrack = config.audio
         lastIntervalType = null
         val intervals = WorkoutPlanner.build(config)
+        NotificationHelper.ensureChannel(this, appLanguage)
 
         val initial = RunState(
             phase = RunPhase.RUNNING,
@@ -79,7 +84,7 @@ class TimerService : Service() {
             totalCycles = config.sprints,
         )
         RunStateHolder.set(initial)
-        startForegroundCompat(NotificationHelper.build(this, initial))
+        startForegroundCompat(NotificationHelper.build(this, initial, appLanguage))
 
         engine = WorkoutEngine(
             intervals = intervals,
@@ -94,7 +99,7 @@ class TimerService : Service() {
         applyAudioTransition(state)
         RunStateHolder.set(state)
         val mgr = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        mgr.notify(NotificationHelper.NOTIFICATION_ID, NotificationHelper.build(this, state))
+        mgr.notify(NotificationHelper.NOTIFICATION_ID, NotificationHelper.build(this, state, appLanguage))
     }
 
     private fun applyAudioTransition(state: RunState) {
@@ -185,8 +190,9 @@ class TimerService : Service() {
         private const val EXTRA_SPRINT_SEC = "sprint_sec"
         private const val EXTRA_REST_SEC = "rest_sec"
         private const val EXTRA_AUDIO = "audio"
+        private const val EXTRA_LANGUAGE = "language"
 
-        fun start(ctx: Context, config: WorkoutConfig) {
+        fun start(ctx: Context, config: WorkoutConfig, language: AppLanguage) {
             val i = Intent(ctx, TimerService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_TOTAL_SEC, config.totalSec)
@@ -194,6 +200,7 @@ class TimerService : Service() {
                 putExtra(EXTRA_SPRINT_SEC, config.sprintSec)
                 putExtra(EXTRA_REST_SEC, config.restSec)
                 putExtra(EXTRA_AUDIO, config.audio.name)
+                putExtra(EXTRA_LANGUAGE, language.name)
             }
             ctx.startForegroundService(i)
         }

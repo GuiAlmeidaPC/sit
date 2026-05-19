@@ -88,6 +88,7 @@ class AudioController(private val context: Context) {
     private fun trackResource(track: AudioTrack): Int = when (track) {
         AudioTrack.DOG_BARKING -> R.raw.bark_loop
         AudioTrack.HORROR_CHASE -> R.raw.horror_chase
+        AudioTrack.ELECTRO_RUSH -> R.raw.electro_rush
         AudioTrack.STANDARD_BEEP -> R.raw.standard_beep
     }
 }

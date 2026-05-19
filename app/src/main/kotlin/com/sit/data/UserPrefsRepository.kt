@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.WorkoutConfig
@@ -24,6 +25,7 @@ class UserPrefsRepository(private val context: Context) {
         val REST_SEC = intPreferencesKey("rest_sec")
         val AUDIO = stringPreferencesKey("audio")
         val THEME = stringPreferencesKey("theme")
+        val LANGUAGE = stringPreferencesKey("language")
     }
 
     val flow: Flow<UserPrefs> = context.dataStore.data.map { p ->
@@ -37,6 +39,7 @@ class UserPrefsRepository(private val context: Context) {
                 audio = p[Keys.AUDIO]?.let(::parseAudio) ?: d.config.audio,
             ),
             theme = p[Keys.THEME]?.let(::parseTheme) ?: d.theme,
+            language = p[Keys.LANGUAGE]?.let(::parseLanguage) ?: d.language,
         )
     }
 
@@ -48,6 +51,7 @@ class UserPrefsRepository(private val context: Context) {
             p[Keys.REST_SEC] = prefs.config.restSec
             p[Keys.AUDIO] = prefs.config.audio.name
             p[Keys.THEME] = prefs.theme.name
+            p[Keys.LANGUAGE] = prefs.language.name
         }
     }
 
@@ -56,4 +60,7 @@ class UserPrefsRepository(private val context: Context) {
 
     private fun parseTheme(s: String): AppTheme =
         runCatching { AppTheme.valueOf(s) }.getOrDefault(UserPrefs.DEFAULT.theme)
+
+    private fun parseLanguage(s: String): AppLanguage =
+        runCatching { AppLanguage.valueOf(s) }.getOrDefault(UserPrefs.DEFAULT.language)
 }

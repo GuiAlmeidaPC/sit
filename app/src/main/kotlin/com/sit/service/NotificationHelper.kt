@@ -8,29 +8,32 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.sit.MainActivity
 import com.sit.R
+import com.sit.domain.AppLanguage
 import com.sit.domain.IntervalType
+import com.sit.i18n.stringsFor
 
 object NotificationHelper {
     const val CHANNEL_ID = "sit_workout"
-    private const val CHANNEL_NAME = "Workout Timer"
     const val NOTIFICATION_ID = 1001
 
-    fun ensureChannel(ctx: Context) {
+    fun ensureChannel(ctx: Context, language: AppLanguage) {
+        val strings = stringsFor(language)
         val mgr = ctx.getSystemService(NotificationManager::class.java) ?: return
         if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
             val chan = NotificationChannel(
                 CHANNEL_ID,
-                CHANNEL_NAME,
+                strings.notificationChannelName,
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Active interval workout"
+                description = strings.notificationChannelDescription
                 setShowBadge(false)
             }
             mgr.createNotificationChannel(chan)
         }
     }
 
-    fun build(ctx: Context, state: RunState): android.app.Notification {
+    fun build(ctx: Context, state: RunState, language: AppLanguage): android.app.Notification {
+        val strings = stringsFor(language)
         val openIntent = PendingIntent.getActivity(
             ctx, 0,
             Intent(ctx, MainActivity::class.java)
@@ -43,8 +46,12 @@ object NotificationHelper {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        val title = stateLabel(state)
-        val text = "${fmt(state.remainingInIntervalSec)} • cycle ${state.currentCycle}/${state.totalCycles}"
+        val title = stateLabel(state, strings)
+        val text = strings.notificationText(
+            remaining = fmt(state.remainingInIntervalSec),
+            current = state.currentCycle,
+            total = state.totalCycles,
+        )
 
         return NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_sit_notification)
@@ -54,18 +61,18 @@ object NotificationHelper {
             .setOngoing(true)
             .setSilent(true)
             .setContentIntent(openIntent)
-            .addAction(0, "Stop", stopIntent)
+            .addAction(0, strings.notificationStopLabel, stopIntent)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .build()
     }
 
-    private fun stateLabel(s: RunState): String {
-        if (s.phase == RunPhase.PAUSED) return "Paused"
-        if (s.phase == RunPhase.COMPLETED) return "Workout complete"
+    private fun stateLabel(s: RunState, strings: com.sit.i18n.AppStrings): String {
+        if (s.phase == RunPhase.PAUSED) return strings.notificationPausedLabel
+        if (s.phase == RunPhase.COMPLETED) return strings.notificationCompleteLabel
         return when (s.intervalType) {
-            IntervalType.RUNNING -> "Running"
-            IntervalType.SPRINTING -> "Sprint!"
-            IntervalType.RESTING -> "Rest"
+            IntervalType.RUNNING -> strings.notificationRunningLabel
+            IntervalType.SPRINTING -> strings.notificationSprintLabel
+            IntervalType.RESTING -> strings.notificationRestLabel
         }
     }
 

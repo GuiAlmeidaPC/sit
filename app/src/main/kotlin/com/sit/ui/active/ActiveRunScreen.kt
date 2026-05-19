@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sit.domain.IntervalType
+import com.sit.i18n.AppStrings
+import com.sit.i18n.LocalAppStrings
 import com.sit.service.RunPhase
 import com.sit.service.RunState
 import com.sit.ui.theme.LocalSitPalette
@@ -47,6 +49,7 @@ fun ActiveRunScreen(
     onStop: () -> Unit,
 ) {
     val palette = LocalSitPalette.current
+    val strings = LocalAppStrings.current
 
     val baseTarget = baseBackground(state, palette)
     val isSprint = state.intervalType == IntervalType.SPRINTING && state.phase == RunPhase.RUNNING
@@ -75,7 +78,7 @@ fun ActiveRunScreen(
             modifier = Modifier.padding(horizontal = 24.dp),
         ) {
             Text(
-                text = stateLabel(state),
+                text = stateLabel(state, strings),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = fg,
@@ -91,7 +94,7 @@ fun ActiveRunScreen(
             )
 
             Text(
-                text = "Cycle ${state.currentCycle} of ${state.totalCycles}",
+                text = strings.cycleLabel(state.currentCycle, state.totalCycles),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = fg.copy(alpha = 0.85f),
@@ -130,7 +133,7 @@ fun ActiveRunScreen(
                 modifier = Modifier.width(200.dp).height(56.dp),
             ) {
                 Text(
-                    text = if (state.phase == RunPhase.PAUSED) "Resume" else "Pause",
+                    text = if (state.phase == RunPhase.PAUSED) strings.resumeLabel else strings.pauseLabel,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -138,13 +141,13 @@ fun ActiveRunScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            LongPressStopButton(fg = fg, onStop = onStop)
+            LongPressStopButton(fg = fg, label = strings.holdToStopLabel, onStop = onStop)
         }
     }
 }
 
 @Composable
-private fun LongPressStopButton(fg: Color, onStop: () -> Unit) {
+private fun LongPressStopButton(fg: Color, label: String, onStop: () -> Unit) {
     Box(
         modifier = Modifier
             .width(200.dp)
@@ -165,7 +168,7 @@ private fun LongPressStopButton(fg: Color, onStop: () -> Unit) {
                 .background(fg.copy(alpha = 0.08f)),
         )
         Text(
-            text = "Hold to Stop",
+            text = label,
             color = fg.copy(alpha = 0.9f),
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
@@ -215,12 +218,12 @@ private fun onColorFor(bg: Color): Color {
     return if (luminance < 0.55f) Color.White else Color(0xFF111111)
 }
 
-private fun stateLabel(s: RunState): String = when {
-    s.phase == RunPhase.PAUSED -> "Paused"
-    s.phase == RunPhase.COMPLETED -> "Complete!"
-    s.intervalType == IntervalType.RUNNING -> "RUN"
-    s.intervalType == IntervalType.SPRINTING -> "SPRINT!"
-    s.intervalType == IntervalType.RESTING -> "REST"
+private fun stateLabel(s: RunState, strings: AppStrings): String = when {
+    s.phase == RunPhase.PAUSED -> strings.pausedStateLabel
+    s.phase == RunPhase.COMPLETED -> strings.completeStateLabel
+    s.intervalType == IntervalType.RUNNING -> strings.runningStateLabel
+    s.intervalType == IntervalType.SPRINTING -> strings.sprintingStateLabel
+    s.intervalType == IntervalType.RESTING -> strings.restingStateLabel
     else -> ""
 }
 

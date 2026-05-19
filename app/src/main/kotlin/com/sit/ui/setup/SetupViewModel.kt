@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sit.data.UserPrefs
 import com.sit.data.UserPrefsRepository
+import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.ValidationState
@@ -23,6 +24,7 @@ data class SetupUiState(
 ) {
     val config: WorkoutConfig get() = prefs.config
     val theme: AppTheme get() = prefs.theme
+    val language: AppLanguage get() = prefs.language
     val canStart: Boolean get() = loaded && validation is ValidationState.Valid
 }
 
@@ -46,6 +48,7 @@ class SetupViewModel(private val repo: UserPrefsRepository) : ViewModel() {
     fun setRestSec(v: Int) = update { it.copy(config = it.config.copy(restSec = v)) }
     fun setAudio(a: AudioTrack) = update { it.copy(config = it.config.copy(audio = a)) }
     fun setTheme(t: AppTheme) = update { it.copy(theme = t) }
+    fun setLanguage(l: AppLanguage) = update { it.copy(language = l) }
 
     private fun update(transform: (UserPrefs) -> UserPrefs) {
         val next = transform(_state.value.prefs)

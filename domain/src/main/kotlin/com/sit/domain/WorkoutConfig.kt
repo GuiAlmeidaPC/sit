@@ -17,12 +17,12 @@ data class WorkoutConfig(
         if (sprints <= 0) 0 else totalRunningSec / sprints
 
     fun validate(): ValidationState = when {
-        totalSec <= 0 -> ValidationState.Invalid("Total workout time must be positive")
-        sprints <= 0 -> ValidationState.Invalid("Number of sprints must be at least 1")
-        sprintSec <= 0 -> ValidationState.Invalid("Sprint duration must be positive")
-        restSec <= 0 -> ValidationState.Invalid("Rest duration must be positive")
+        totalSec <= 0 -> ValidationState.Invalid(ValidationMessage.TOTAL_TIME_MUST_BE_POSITIVE)
+        sprints <= 0 -> ValidationState.Invalid(ValidationMessage.SPRINTS_MUST_BE_AT_LEAST_ONE)
+        sprintSec <= 0 -> ValidationState.Invalid(ValidationMessage.SPRINT_DURATION_MUST_BE_POSITIVE)
+        restSec <= 0 -> ValidationState.Invalid(ValidationMessage.REST_DURATION_MUST_BE_POSITIVE)
         totalRunningSec < sprints ->
-            ValidationState.Invalid("Sprint + rest time exceeds (or leaves <1s/cycle for) running")
+            ValidationState.Invalid(ValidationMessage.RUNNING_TIME_MUST_FIT)
         else -> ValidationState.Valid
     }
 
@@ -31,5 +31,13 @@ data class WorkoutConfig(
 
 sealed interface ValidationState {
     data object Valid : ValidationState
-    data class Invalid(val reason: String) : ValidationState
+    data class Invalid(val reason: ValidationMessage) : ValidationState
+}
+
+enum class ValidationMessage {
+    TOTAL_TIME_MUST_BE_POSITIVE,
+    SPRINTS_MUST_BE_AT_LEAST_ONE,
+    SPRINT_DURATION_MUST_BE_POSITIVE,
+    REST_DURATION_MUST_BE_POSITIVE,
+    RUNNING_TIME_MUST_FIT,
 }

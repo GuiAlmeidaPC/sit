@@ -19,12 +19,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sit.i18n.LocalAppStrings
 import com.sit.service.RunState
 import com.sit.ui.theme.LocalSitPalette
 
 @Composable
 fun SummaryScreen(state: RunState, onDone: () -> Unit) {
     val palette = LocalSitPalette.current
+    val strings = LocalAppStrings.current
     val bg = palette.rest
     val fg = onColorFor(bg)
 
@@ -38,16 +40,16 @@ fun SummaryScreen(state: RunState, onDone: () -> Unit) {
             modifier = Modifier.padding(24.dp),
         ) {
             Text(
-                text = "Workout Complete",
+                text = strings.workoutCompleteLabel,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = fg,
             )
             Spacer(Modifier.height(40.dp))
 
-            StatRow("Total time", fmt(state.totalElapsedSec), fg)
+            StatRow(strings.totalTimeLabel, fmt(state.totalElapsedSec), fg)
             Spacer(Modifier.height(20.dp))
-            StatRow("Cycles", "${state.totalCycles}", fg)
+            StatRow(strings.cyclesLabel, "${state.totalCycles}", fg)
 
             Spacer(Modifier.height(56.dp))
 
@@ -60,7 +62,7 @@ fun SummaryScreen(state: RunState, onDone: () -> Unit) {
                 modifier = Modifier.width(200.dp).height(56.dp),
             ) {
                 Text(
-                    text = "Done",
+                    text = strings.doneLabel,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                 )

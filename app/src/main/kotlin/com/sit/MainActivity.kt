@@ -46,8 +46,12 @@ class MainActivity : ComponentActivity() {
                         RunPhase.IDLE -> SetupScreen(
                             state = setup,
                             onTotalSecChange = setupViewModel::setTotalSec,
+                            onModeChange = setupViewModel::setMode,
                             onSprintsChange = setupViewModel::setSprints,
                             onSprintSecChange = setupViewModel::setSprintSec,
+                            onAdvancedSprintChange = setupViewModel::updateAdvancedSprint,
+                            onAddAdvancedSprint = setupViewModel::addAdvancedSprint,
+                            onRemoveAdvancedSprint = setupViewModel::removeAdvancedSprint,
                             onRestSecChange = setupViewModel::setRestSec,
                             onAudioChange = setupViewModel::setAudio,
                             onThemeChange = setupViewModel::setTheme,

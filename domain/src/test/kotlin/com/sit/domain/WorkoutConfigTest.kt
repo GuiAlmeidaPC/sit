@@ -36,4 +36,36 @@ class WorkoutConfigTest {
         assertFalse(WorkoutConfig(600, 5, 0, 90).isValid())
         assertFalse(WorkoutConfig(600, 5, 30, 0).isValid())
     }
+
+    @Test fun `advanced mode uses per sprint durations`() {
+        val cfg = WorkoutConfig(
+            totalSec = 1200,
+            sprints = 5,
+            sprintSec = 30,
+            restSec = 60,
+            mode = WorkoutMode.ADVANCED,
+            advancedSprintSecs = listOf(15, 20, 25, 30),
+        )
+
+        assertEquals(4, cfg.sprintCount)
+        assertEquals(listOf(15, 20, 25, 30), cfg.sprintDurationsSec)
+        assertEquals(90, cfg.totalSprintSec)
+        assertEquals(240, cfg.totalRestSec)
+        assertEquals(870, cfg.totalRunningSec)
+        assertTrue(cfg.isValid())
+    }
+
+    @Test fun `advanced mode is invalid when sprint list is empty`() {
+        val cfg = WorkoutConfig(
+            totalSec = 1200,
+            sprints = 5,
+            sprintSec = 30,
+            restSec = 60,
+            mode = WorkoutMode.ADVANCED,
+            advancedSprintSecs = emptyList(),
+        )
+
+        assertFalse(cfg.isValid())
+        assertIs<ValidationState.Invalid>(cfg.validate())
+    }
 }

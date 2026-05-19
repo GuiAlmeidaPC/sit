@@ -15,14 +15,14 @@ object WorkoutPlanner {
         require(config.isValid()) { "Cannot plan an invalid workout: ${config.validate()}" }
 
         val baseRun = config.individualRunningSec()
-        val remainder = config.totalRunningSec - baseRun * config.sprints
+        val remainder = config.totalRunningSec - baseRun * config.sprintCount
         val firstRun = baseRun + remainder
 
-        val out = ArrayList<Interval>(config.sprints * 3)
-        for (i in 0 until config.sprints) {
+        val out = ArrayList<Interval>(config.sprintCount * 3)
+        for ((i, sprintDurationSec) in config.sprintDurationsSec.withIndex()) {
             val runSec = if (i == 0) firstRun else baseRun
             out += Interval(IntervalType.RUNNING, runSec, i)
-            out += Interval(IntervalType.SPRINTING, config.sprintSec, i)
+            out += Interval(IntervalType.SPRINTING, sprintDurationSec, i)
             out += Interval(IntervalType.RESTING, config.restSec, i)
         }
         return out

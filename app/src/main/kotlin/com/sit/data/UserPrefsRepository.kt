@@ -11,6 +11,7 @@ import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.WorkoutConfig
+import com.sit.domain.WorkoutMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -26,6 +27,8 @@ class UserPrefsRepository(private val context: Context) {
         val AUDIO = stringPreferencesKey("audio")
         val THEME = stringPreferencesKey("theme")
         val LANGUAGE = stringPreferencesKey("language")
+        val MODE = stringPreferencesKey("mode")
+        val ADVANCED_SPRINTS = stringPreferencesKey("advanced_sprints")
     }
 
     val flow: Flow<UserPrefs> = context.dataStore.data.map { p ->
@@ -37,6 +40,9 @@ class UserPrefsRepository(private val context: Context) {
                 sprintSec = p[Keys.SPRINT_SEC] ?: d.config.sprintSec,
                 restSec = p[Keys.REST_SEC] ?: d.config.restSec,
                 audio = p[Keys.AUDIO]?.let(::parseAudio) ?: d.config.audio,
+                mode = p[Keys.MODE]?.let(::parseMode) ?: d.config.mode,
+                advancedSprintSecs = p[Keys.ADVANCED_SPRINTS]?.let(::parseAdvancedSprintSecs)
+                    ?: d.config.advancedSprintSecs,
             ),
             theme = p[Keys.THEME]?.let(::parseTheme) ?: d.theme,
             language = p[Keys.LANGUAGE]?.let(::parseLanguage) ?: d.language,
@@ -52,6 +58,8 @@ class UserPrefsRepository(private val context: Context) {
             p[Keys.AUDIO] = prefs.config.audio.name
             p[Keys.THEME] = prefs.theme.name
             p[Keys.LANGUAGE] = prefs.language.name
+            p[Keys.MODE] = prefs.config.mode.name
+            p[Keys.ADVANCED_SPRINTS] = prefs.config.advancedSprintSecs.joinToString(",")
         }
     }
 
@@ -63,4 +71,12 @@ class UserPrefsRepository(private val context: Context) {
 
     private fun parseLanguage(s: String): AppLanguage =
         runCatching { AppLanguage.valueOf(s) }.getOrDefault(UserPrefs.DEFAULT.language)
+
+    private fun parseMode(s: String): WorkoutMode =
+        runCatching { WorkoutMode.valueOf(s) }.getOrDefault(UserPrefs.DEFAULT.config.mode)
+
+    private fun parseAdvancedSprintSecs(s: String): List<Int> =
+        s.split(',')
+            .mapNotNull { value -> value.toIntOrNull() }
+            .ifEmpty { UserPrefs.DEFAULT.config.advancedSprintSecs }
 }

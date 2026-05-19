@@ -74,4 +74,24 @@ class WorkoutPlannerTest {
         val cycleIndices = plan.map { it.cycleIndex }.distinct()
         assertEquals(listOf(0, 1, 2, 3, 4), cycleIndices)
     }
+
+    @Test fun `advanced mode uses each sprint duration in order`() {
+        val cfg = WorkoutConfig(
+            totalSec = 1500,
+            sprints = 5,
+            sprintSec = 30,
+            restSec = 60,
+            mode = WorkoutMode.ADVANCED,
+            advancedSprintSecs = listOf(15, 20, 25, 30),
+        )
+
+        val plan = WorkoutPlanner.build(cfg)
+
+        assertEquals(12, plan.size)
+        assertEquals(1500, plan.sumOf { it.durationSec })
+
+        val sprints = plan.filter { it.type == IntervalType.SPRINTING }
+        assertEquals(listOf(15, 20, 25, 30), sprints.map { it.durationSec })
+        assertEquals(listOf(0, 1, 2, 3), sprints.map { it.cycleIndex })
+    }
 }

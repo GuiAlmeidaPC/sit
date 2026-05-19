@@ -1,13 +1,17 @@
 package com.sit.ui.setup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Menu
@@ -44,6 +49,8 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -88,17 +95,22 @@ import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.ValidationState
 import com.sit.domain.WorkoutConfig
+import com.sit.domain.WorkoutMode
 import com.sit.i18n.LocalAppStrings
 import com.sit.ui.theme.ThemeCatalog
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SetupScreen(
     state: SetupUiState,
     onTotalSecChange: (Int) -> Unit,
+    onModeChange: (WorkoutMode) -> Unit,
     onSprintsChange: (Int) -> Unit,
     onSprintSecChange: (Int) -> Unit,
+    onAdvancedSprintChange: (Int, Int) -> Unit,
+    onAddAdvancedSprint: () -> Unit,
+    onRemoveAdvancedSprint: (Int) -> Unit,
     onRestSecChange: (Int) -> Unit,
     onAudioChange: (AudioTrack) -> Unit,
     onThemeChange: (AppTheme) -> Unit,
@@ -108,6 +120,8 @@ fun SetupScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val strings = LocalAppStrings.current
+    val selectedTabIndex = if (state.mode == WorkoutMode.BASIC) 0 else 1
+    val listState = rememberLazyListState()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -150,49 +164,89 @@ fun SetupScreen(
                     )
                 },
             ) { innerPadding ->
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(innerPadding)
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                        .padding(innerPadding),
+                    state = listState,
+                    contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    TimePickerRow(
-                        label = strings.totalWorkoutLabel,
-                        valueSec = state.config.totalSec,
-                        step = 60,
-                        mode = TimeEditorMode.HOURS_MINUTES,
-                        onChange = onTotalSecChange,
-                    )
-                    SprintCountRow(strings.sprintsLabel, state.config.sprints, onSprintsChange)
-                    TimePickerRow(
-                        label = strings.sprintLabel,
-                        valueSec = state.config.sprintSec,
-                        step = 5,
-                        mode = TimeEditorMode.MINUTES_SECONDS,
-                        onChange = onSprintSecChange,
-                    )
-                    TimePickerRow(
-                        label = strings.restLabel,
-                        valueSec = state.config.restSec,
-                        step = 5,
-                        mode = TimeEditorMode.MINUTES_SECONDS,
-                        onChange = onRestSecChange,
-                    )
+                    stickyHeader {
+                        Surface(
+                            color = MaterialTheme.colorScheme.background,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            TabRow(
+                                selectedTabIndex = selectedTabIndex,
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                            ) {
+                                Tab(
+                                    selected = selectedTabIndex == 0,
+                                    onClick = { onModeChange(WorkoutMode.BASIC) },
+                                    text = { Text(strings.basicModeLabel) },
+                                )
+                                Tab(
+                                    selected = selectedTabIndex == 1,
+                                    onClick = { onModeChange(WorkoutMode.ADVANCED) },
+                                    text = { Text(strings.advancedModeLabel) },
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            TimePickerRow(
+                                label = strings.totalWorkoutLabel,
+                                valueSec = state.config.totalSec,
+                                step = 60,
+                                mode = TimeEditorMode.HOURS_MINUTES,
+                                onChange = onTotalSecChange,
+                            )
 
-                    InfoCard(state.config, state.validation)
+                            if (state.mode == WorkoutMode.BASIC) {
+                                SprintCountRow(strings.sprintsLabel, state.config.sprints, onSprintsChange)
+                                TimePickerRow(
+                                    label = strings.sprintLabel,
+                                    valueSec = state.config.sprintSec,
+                                    step = 5,
+                                    mode = TimeEditorMode.MINUTES_SECONDS,
+                                    onChange = onSprintSecChange,
+                                )
+                            } else {
+                                AdvancedSprintSection(
+                                    sprintDurations = state.config.advancedSprintSecs,
+                                    onSprintChange = onAdvancedSprintChange,
+                                    onAddSprint = onAddAdvancedSprint,
+                                    onRemoveSprint = onRemoveAdvancedSprint,
+                                )
+                            }
 
-                    SectionLabel(strings.soundLabel)
-                    AudioSelector(state.config.audio, onAudioChange)
+                            TimePickerRow(
+                                label = strings.restLabel,
+                                valueSec = state.config.restSec,
+                                step = 5,
+                                mode = TimeEditorMode.MINUTES_SECONDS,
+                                onChange = onRestSecChange,
+                            )
 
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onStart,
-                        enabled = state.canStart,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                    ) {
-                        Text(strings.startWorkoutLabel, fontWeight = FontWeight.Bold)
+                            InfoCard(state.config, state.validation)
+
+                            SectionLabel(strings.soundLabel)
+                            AudioSelector(state.config.audio, onAudioChange)
+
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = onStart,
+                                enabled = state.canStart,
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                            ) {
+                                Text(strings.startWorkoutLabel, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
@@ -347,6 +401,67 @@ private fun TimePickerRow(
 }
 
 @Composable
+private fun AdvancedSprintSection(
+    sprintDurations: List<Int>,
+    onSprintChange: (Int, Int) -> Unit,
+    onAddSprint: () -> Unit,
+    onRemoveSprint: (Int) -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    SectionLabel(strings.sprintListLabel)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        sprintDurations.forEachIndexed { index, durationSec ->
+            AdvancedSprintRow(
+                label = "${strings.sprintLabel} ${index + 1}",
+                valueSec = durationSec,
+                canRemove = sprintDurations.size > 1,
+                onValueSubmit = { onSprintChange(index, it) },
+                onRemove = { onRemoveSprint(index) },
+            )
+        }
+        Button(
+            onClick = onAddSprint,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(strings.addSprintLabel)
+        }
+    }
+}
+
+@Composable
+private fun AdvancedSprintRow(
+    label: String,
+    valueSec: Int,
+    canRemove: Boolean,
+    onValueSubmit: (Int) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
+        StepperValueArea {
+            TimeEditorField(
+                label = label,
+                valueSec = valueSec,
+                mode = TimeEditorMode.MINUTES_SECONDS,
+                onValueSubmit = { onValueSubmit(it.coerceAtLeast(0)) },
+            )
+        }
+        IconButton(
+            onClick = onRemove,
+            enabled = canRemove,
+            modifier = Modifier.size(44.dp),
+            colors = IconButtonDefaults.iconButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            ),
+        ) {
+            Icon(Icons.Filled.Delete, contentDescription = strings.removeSprintLabel)
+        }
+    }
+}
+
+@Composable
 private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
@@ -369,89 +484,104 @@ private fun TimeStepper(
     onInc: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
-    val focusManager = LocalFocusManager.current
-    val minuteFocusRequester = remember { FocusRequester() }
-    val secondFocusRequester = remember { FocusRequester() }
-    var activePart by remember { mutableStateOf<TimePart?>(null) }
-    var minuteField by remember { mutableStateOf(TextFieldValue("00")) }
-    var secondField by remember { mutableStateOf(TextFieldValue("00")) }
-
-    LaunchedEffect(valueSec, activePart) {
-        val (primaryValue, secondaryValue) = splitTimeValue(normalizeTimeValue(valueSec, mode), mode)
-        val formattedMinutes = formatTwoDigits(primaryValue)
-        val formattedSeconds = formatTwoDigits(secondaryValue)
-        if (activePart != TimePart.MINUTES) {
-            minuteField = TextFieldValue(formattedMinutes, TextRange(formattedMinutes.length))
-        }
-        if (activePart != TimePart.SECONDS) {
-            secondField = TextFieldValue(formattedSeconds, TextRange(formattedSeconds.length))
-        }
-    }
-
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepperButton(icon = Icons.Filled.Remove, contentDescription = strings.decreaseLabel, onClick = onDec)
         StepperValueArea {
-            TimeSegmentField(
-                label = "$label ${mode.primaryLabel.accessibilityName}",
-                unitLabel = mode.primaryLabel.shortLabel,
-                value = minuteField,
-                isFocused = activePart == TimePart.MINUTES,
-                focusRequester = minuteFocusRequester,
-                imeAction = ImeAction.Next,
-                onFocused = {
-                    activePart = TimePart.MINUTES
-                    minuteField = minuteField.copy(selection = TextRange(0, minuteField.text.length))
-                },
-                onBlurred = {
-                    activePart = null
-                    val normalized = formatTwoDigits(parsePrimaryPart(minuteField.text))
-                    minuteField = TextFieldValue(normalized, TextRange(normalized.length))
-                },
-                onValueChange = { updated ->
-                    val sanitized = sanitizePrimaryInput(updated.text)
-                    minuteField = TextFieldValue(sanitized, TextRange(sanitized.length))
-                    onValueSubmit(combineTimeParts(sanitized, secondField.text, mode))
-                    if (sanitized.length == 2) {
-                        secondFocusRequester.requestFocus()
-                    }
-                },
-                keyboardActions = KeyboardActions(
-                    onNext = { secondFocusRequester.requestFocus() },
-                    onDone = { focusManager.clearFocus() },
-                ),
-            )
-            Text(
-                text = ":",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            TimeSegmentField(
-                label = "$label ${mode.secondaryLabel.accessibilityName}",
-                unitLabel = mode.secondaryLabel.shortLabel,
-                value = secondField,
-                isFocused = activePart == TimePart.SECONDS,
-                focusRequester = secondFocusRequester,
-                imeAction = ImeAction.Done,
-                onFocused = {
-                    activePart = TimePart.SECONDS
-                    secondField = secondField.copy(selection = TextRange(0, secondField.text.length))
-                },
-                onBlurred = {
-                    activePart = null
-                    val normalized = formatTwoDigits(parseSecondaryPart(secondField.text))
-                    secondField = TextFieldValue(normalized, TextRange(normalized.length))
-                },
-                onValueChange = { updated ->
-                    val sanitized = sanitizeSecondaryInput(updated.text)
-                    secondField = TextFieldValue(sanitized, TextRange(sanitized.length))
-                    onValueSubmit(combineTimeParts(minuteField.text, sanitized, mode))
-                },
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            TimeEditorField(
+                label = label,
+                valueSec = valueSec,
+                mode = mode,
+                onValueSubmit = onValueSubmit,
             )
         }
         StepperButton(icon = Icons.Filled.Add, contentDescription = strings.increaseLabel, onClick = onInc)
     }
+}
+
+@Composable
+private fun TimeEditorField(
+    label: String,
+    valueSec: Int,
+    mode: TimeEditorMode,
+    onValueSubmit: (Int) -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    val minuteFocusRequester = remember { FocusRequester() }
+    val secondFocusRequester = remember { FocusRequester() }
+    var activePart by remember { mutableStateOf<TimePart?>(null) }
+    var primaryField by remember { mutableStateOf(TextFieldValue("00")) }
+    var secondaryField by remember { mutableStateOf(TextFieldValue("00")) }
+
+    LaunchedEffect(valueSec, activePart) {
+        val (primaryValue, secondaryValue) = splitTimeValue(normalizeTimeValue(valueSec, mode), mode)
+        val formattedPrimary = formatTwoDigits(primaryValue)
+        val formattedSecondary = formatTwoDigits(secondaryValue)
+        if (activePart != TimePart.MINUTES) {
+            primaryField = TextFieldValue(formattedPrimary, TextRange(formattedPrimary.length))
+        }
+        if (activePart != TimePart.SECONDS) {
+            secondaryField = TextFieldValue(formattedSecondary, TextRange(formattedSecondary.length))
+        }
+    }
+
+    TimeSegmentField(
+        label = "$label ${mode.primaryLabel.accessibilityName}",
+        unitLabel = mode.primaryLabel.shortLabel,
+        value = primaryField,
+        isFocused = activePart == TimePart.MINUTES,
+        focusRequester = minuteFocusRequester,
+        imeAction = ImeAction.Next,
+        onFocused = {
+            activePart = TimePart.MINUTES
+            primaryField = primaryField.copy(selection = TextRange(0, primaryField.text.length))
+        },
+        onBlurred = {
+            activePart = null
+            val normalized = formatTwoDigits(parsePrimaryPart(primaryField.text))
+            primaryField = TextFieldValue(normalized, TextRange(normalized.length))
+        },
+        onValueChange = { updated ->
+            val sanitized = sanitizePrimaryInput(updated.text)
+            primaryField = TextFieldValue(sanitized, TextRange(sanitized.length))
+            onValueSubmit(combineTimeParts(sanitized, secondaryField.text, mode))
+            if (sanitized.length == 2) {
+                secondFocusRequester.requestFocus()
+            }
+        },
+        keyboardActions = KeyboardActions(
+            onNext = { secondFocusRequester.requestFocus() },
+            onDone = { focusManager.clearFocus() },
+        ),
+    )
+    Text(
+        text = ":",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    TimeSegmentField(
+        label = "$label ${mode.secondaryLabel.accessibilityName}",
+        unitLabel = mode.secondaryLabel.shortLabel,
+        value = secondaryField,
+        isFocused = activePart == TimePart.SECONDS,
+        focusRequester = secondFocusRequester,
+        imeAction = ImeAction.Done,
+        onFocused = {
+            activePart = TimePart.SECONDS
+            secondaryField = secondaryField.copy(selection = TextRange(0, secondaryField.text.length))
+        },
+        onBlurred = {
+            activePart = null
+            val normalized = formatTwoDigits(parseSecondaryPart(secondaryField.text))
+            secondaryField = TextFieldValue(normalized, TextRange(normalized.length))
+        },
+        onValueChange = { updated ->
+            val sanitized = sanitizeSecondaryInput(updated.text)
+            secondaryField = TextFieldValue(sanitized, TextRange(sanitized.length))
+            onValueSubmit(combineTimeParts(primaryField.text, sanitized, mode))
+        },
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+    )
 }
 
 @Composable

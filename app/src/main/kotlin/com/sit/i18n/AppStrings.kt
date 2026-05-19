@@ -8,8 +8,13 @@ import com.sit.domain.WorkoutConfig
 data class AppStrings(
     val openMenuDescription: String,
     val totalWorkoutLabel: String,
+    val basicModeLabel: String,
+    val advancedModeLabel: String,
     val sprintsLabel: String,
     val sprintLabel: String,
+    val sprintListLabel: String,
+    val addSprintLabel: String,
+    val removeSprintLabel: String,
     val restLabel: String,
     val soundLabel: String,
     val startWorkoutLabel: String,
@@ -92,8 +97,13 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     AppLanguage.ENGLISH -> AppStrings(
         openMenuDescription = "Open menu",
         totalWorkoutLabel = "Total workout",
+        basicModeLabel = "Basic",
+        advancedModeLabel = "Advanced",
         sprintsLabel = "Sprints",
         sprintLabel = "Sprint",
+        sprintListLabel = "Sprint list",
+        addSprintLabel = "Add sprint",
+        removeSprintLabel = "Remove sprint",
         restLabel = "Rest",
         soundLabel = "Sound",
         startWorkoutLabel = "START WORKOUT",
@@ -150,8 +160,13 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         validationRestPositive = "Rest duration must be positive",
         validationRunningFits = "Sprint + rest time exceeds (or leaves <1s/cycle for) running",
         workoutTemplate = { config ->
-            "Workout: ${config.sprints} cycles of ${formatMmSs(config.individualRunningSec())} " +
-                "Run -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Rest."
+            if (config.mode.name == "ADVANCED") {
+                "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
+                    "Run -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Rest."
+            } else {
+                "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
+                    "Run -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Rest."
+            }
         },
         cycleTemplate = { current, total -> "Cycle $current of $total" },
         notificationTemplate = { remaining, current, total -> "$remaining • cycle $current/$total" },
@@ -161,8 +176,13 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     AppLanguage.PORTUGUESE -> AppStrings(
         openMenuDescription = "Abrir menu",
         totalWorkoutLabel = "Treino total",
+        basicModeLabel = "Basico",
+        advancedModeLabel = "Avancado",
         sprintsLabel = "Sprints",
         sprintLabel = "Sprint",
+        sprintListLabel = "Lista de sprints",
+        addSprintLabel = "Adicionar sprint",
+        removeSprintLabel = "Remover sprint",
         restLabel = "Descanso",
         soundLabel = "Som",
         startWorkoutLabel = "INICIAR TREINO",
@@ -219,8 +239,13 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         validationRestPositive = "A duracao do descanso deve ser positiva",
         validationRunningFits = "Sprint + descanso excedem o treino (ou deixam <1s/ciclo para corrida)",
         workoutTemplate = { config ->
-            "Treino: ${config.sprints} ciclos de ${formatMmSs(config.individualRunningSec())} " +
-                "Corrida -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
+            if (config.mode.name == "ADVANCED") {
+                "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
+                    "Corrida -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
+            } else {
+                "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
+                    "Corrida -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
+            }
         },
         cycleTemplate = { current, total -> "Ciclo $current de $total" },
         notificationTemplate = { remaining, current, total -> "$remaining • ciclo $current/$total" },
@@ -233,3 +258,6 @@ private fun formatMmSs(sec: Int): String {
     val s = sec.coerceAtLeast(0)
     return "%d:%02d".format(s / 60, s % 60)
 }
+
+private fun formatSprintList(config: WorkoutConfig): String =
+    config.sprintDurationsSec.joinToString(", ") { formatMmSs(it) }

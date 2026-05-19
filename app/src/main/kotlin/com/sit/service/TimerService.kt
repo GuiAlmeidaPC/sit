@@ -12,6 +12,7 @@ import com.sit.domain.AppLanguage
 import com.sit.domain.AudioTrack
 import com.sit.domain.IntervalType
 import com.sit.domain.WorkoutConfig
+import com.sit.domain.WorkoutMode
 import com.sit.domain.WorkoutPlanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +62,10 @@ class TimerService : Service() {
             audio = AudioTrack.valueOf(
                 intent.getStringExtra(EXTRA_AUDIO) ?: AudioTrack.DOG_BARKING.name
             ),
+            mode = runCatching {
+                WorkoutMode.valueOf(intent.getStringExtra(EXTRA_MODE) ?: WorkoutMode.BASIC.name)
+            }.getOrDefault(WorkoutMode.BASIC),
+            advancedSprintSecs = intent.getIntArrayExtra(EXTRA_ADVANCED_SPRINTS)?.toList() ?: emptyList(),
         )
         if (!config.isValid()) {
             stopSelf()
@@ -81,14 +86,14 @@ class TimerService : Service() {
             totalElapsedSec = 0,
             totalWorkoutSec = intervals.sumOf { it.durationSec },
             currentCycle = 1,
-            totalCycles = config.sprints,
+            totalCycles = config.sprintCount,
         )
         RunStateHolder.set(initial)
         startForegroundCompat(NotificationHelper.build(this, initial, appLanguage))
 
         engine = WorkoutEngine(
             intervals = intervals,
-            totalCycles = config.sprints,
+            totalCycles = config.sprintCount,
             scope = scope,
             onTick = ::handleTick,
             onComplete = ::handleComplete,
@@ -191,6 +196,8 @@ class TimerService : Service() {
         private const val EXTRA_REST_SEC = "rest_sec"
         private const val EXTRA_AUDIO = "audio"
         private const val EXTRA_LANGUAGE = "language"
+        private const val EXTRA_MODE = "mode"
+        private const val EXTRA_ADVANCED_SPRINTS = "advanced_sprints"
 
         fun start(ctx: Context, config: WorkoutConfig, language: AppLanguage) {
             val i = Intent(ctx, TimerService::class.java).apply {
@@ -201,6 +208,8 @@ class TimerService : Service() {
                 putExtra(EXTRA_REST_SEC, config.restSec)
                 putExtra(EXTRA_AUDIO, config.audio.name)
                 putExtra(EXTRA_LANGUAGE, language.name)
+                putExtra(EXTRA_MODE, config.mode.name)
+                putExtra(EXTRA_ADVANCED_SPRINTS, config.advancedSprintSecs.toIntArray())
             }
             ctx.startForegroundService(i)
         }

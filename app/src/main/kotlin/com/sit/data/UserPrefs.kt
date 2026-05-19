@@ -4,6 +4,7 @@ import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
 import com.sit.domain.WorkoutConfig
+import com.sit.domain.WorkoutMode
 
 data class UserPrefs(
     val config: WorkoutConfig,
@@ -18,6 +19,8 @@ data class UserPrefs(
                 sprintSec = 30,
                 restSec = 90,
                 audio = AudioTrack.DOG_BARKING,
+                mode = WorkoutMode.BASIC,
+                advancedSprintSecs = List(5) { 30 },
             ),
             theme = AppTheme.CLASSIC,
             language = AppLanguage.ENGLISH,

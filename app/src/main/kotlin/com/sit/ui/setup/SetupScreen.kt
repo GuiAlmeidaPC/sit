@@ -1,11 +1,14 @@
 package com.sit.ui.setup
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,13 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicNote
@@ -30,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,11 +41,19 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +69,7 @@ import com.sit.domain.WorkoutConfig
 import com.sit.ui.theme.ThemeCatalog
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     state: SetupUiState,
@@ -81,47 +94,61 @@ fun SetupScreen(
         },
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(
-                            Icons.Filled.Menu,
-                            contentDescription = "Open menu",
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "SIT",
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary,
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                topBar = {
+                    TopAppBar(
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(
+                                    Icons.Filled.Menu,
+                                    contentDescription = "Open menu",
+                                )
+                            }
+                        },
+                        title = {
+                            Text(
+                                text = "SIT",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Black,
+                            )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            titleContentColor = MaterialTheme.colorScheme.primary,
+                        ),
                     )
-                }
-
-                TimePickerRow("Total workout", state.config.totalSec, step = 30, onTotalSecChange)
-                SprintCountRow(state.config.sprints, onSprintsChange)
-                TimePickerRow("Sprint", state.config.sprintSec, step = 5, onSprintSecChange)
-                TimePickerRow("Rest", state.config.restSec, step = 5, onRestSecChange)
-
-                InfoCard(state.config, state.validation)
-
-                SectionLabel("Sound")
-                AudioSelector(state.config.audio, onAudioChange)
-
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onStart,
-                    enabled = state.canStart,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                },
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(innerPadding)
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("START WORKOUT", fontWeight = FontWeight.Bold)
+                    TimePickerRow("Total workout", state.config.totalSec, step = 30, onTotalSecChange)
+                    SprintCountRow(state.config.sprints, onSprintsChange)
+                    TimePickerRow("Sprint", state.config.sprintSec, step = 5, onSprintSecChange)
+                    TimePickerRow("Rest", state.config.restSec, step = 5, onRestSecChange)
+
+                    InfoCard(state.config, state.validation)
+
+                    SectionLabel("Sound")
+                    AudioSelector(state.config.audio, onAudioChange)
+
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onStart,
+                        enabled = state.canStart,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                    ) {
+                        Text("START WORKOUT", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -133,43 +160,107 @@ private fun SettingsDrawer(
     selectedTheme: AppTheme,
     onThemeChange: (AppTheme) -> Unit,
 ) {
+    var themeExpanded by remember { mutableStateOf(false) }
+    var aboutExpanded by remember { mutableStateOf(false) }
+
     ModalDrawerSheet {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 12.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = "SIT",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             )
 
-            SectionLabel("Theme")
-            ThemeSelector(selectedTheme, onThemeChange)
+            ExpandableSection(
+                title = "Theme",
+                expanded = themeExpanded,
+                onToggle = { themeExpanded = !themeExpanded },
+            ) {
+                ThemeSelector(selectedTheme, onThemeChange)
+            }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            ExpandableSection(
+                title = "About",
+                expanded = aboutExpanded,
+                onToggle = { aboutExpanded = !aboutExpanded },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "SIT is a sprint interval training timer. Set your total " +
+                            "workout time, the number of sprints, and your sprint/rest " +
+                            "durations — the app calculates the steady-pace running " +
+                            "interval between sets so the math fits your time budget " +
+                            "exactly.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                    )
+                    Text(
+                        text = "During each sprint a chase sound plays and other audio " +
+                            "(music, podcasts) ducks to push you to keep up. The workout " +
+                            "keeps running with the screen locked via a foreground " +
+                            "notification.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
+    }
+}
 
-            SectionLabel("About")
+@Composable
+private fun ExpandableSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "chevron-rotate",
+    )
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = "SIT is a sprint interval training timer. Set your total workout " +
-                    "time, the number of sprints, and your sprint/rest durations — the app " +
-                    "calculates the steady-pace running interval between sets so the math " +
-                    "fits your time budget exactly.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                text = title.uppercase(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
-            Text(
-                text = "During each sprint a chase sound plays and other audio (music, " +
-                    "podcasts) ducks to push you to keep up. The workout keeps running " +
-                    "with the screen locked via a foreground notification.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+            Icon(
+                imageVector = Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                modifier = Modifier.rotate(chevronRotation),
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.padding(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = 16.dp,
+                ),
+            ) {
+                content()
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 
@@ -317,11 +408,13 @@ private fun AudioChip(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ThemeSelector(selected: AppTheme, onChange: (AppTheme) -> Unit) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AppTheme.entries.forEach { theme ->
             ThemeSwatch(theme, selected = theme == selected, onClick = { onChange(theme) })

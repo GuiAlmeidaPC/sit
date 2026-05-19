@@ -10,6 +10,7 @@ build/
 *.iws
 *.ipr
 local.properties
+local.properties.example
 captures/
 .cxx/
 

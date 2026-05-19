@@ -7,7 +7,9 @@ import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import com.sit.audio.AudioController
 import com.sit.domain.AudioTrack
+import com.sit.domain.IntervalType
 import com.sit.domain.WorkoutConfig
 import com.sit.domain.WorkoutPlanner
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +23,9 @@ class TimerService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var engine: WorkoutEngine? = null
     private val binder = LocalBinder()
+    private var audio: AudioController? = null
+    private var audioTrack: AudioTrack = AudioTrack.DOG_BARKING
+    private var lastIntervalType: IntervalType? = null
 
     inner class LocalBinder : Binder() {
         fun service(): TimerService = this@TimerService
@@ -29,6 +34,7 @@ class TimerService : Service() {
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.ensureChannel(this)
+        audio = AudioController(applicationContext)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -57,6 +63,8 @@ class TimerService : Service() {
             stopSelf()
             return
         }
+        audioTrack = config.audio
+        lastIntervalType = null
         val intervals = WorkoutPlanner.build(config)
 
         val initial = RunState(
@@ -84,14 +92,33 @@ class TimerService : Service() {
     }
 
     private fun handleTick(state: RunState) {
+        applyAudioTransition(state)
         RunStateHolder.set(state)
         val mgr = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         mgr.notify(NotificationHelper.NOTIFICATION_ID, NotificationHelper.build(this, state))
     }
 
+    private fun applyAudioTransition(state: RunState) {
+        if (state.phase == RunPhase.PAUSED) {
+            audio?.stopSprint()
+            // Clear so a resume into the same sprint interval restarts audio.
+            lastIntervalType = null
+            return
+        }
+        val current = state.intervalType
+        if (current == lastIntervalType) return
+        lastIntervalType = current
+        if (current == IntervalType.SPRINTING) {
+            audio?.playSprint(audioTrack)
+        } else {
+            audio?.stopSprint()
+        }
+    }
+
     private fun handleComplete() {
         // Hold the COMPLETED state on the holder so UI can show the summary;
         // tear down the foreground service + notification.
+        audio?.stopSprint()
         engine?.stop()
         engine = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -99,6 +126,7 @@ class TimerService : Service() {
     }
 
     private fun stopWorkout() {
+        audio?.stopSprint()
         engine?.stop()
         engine = null
         RunStateHolder.reset()
@@ -121,6 +149,8 @@ class TimerService : Service() {
     override fun onDestroy() {
         engine?.stop()
         engine = null
+        audio?.release()
+        audio = null
         scope.cancel()
         super.onDestroy()
     }

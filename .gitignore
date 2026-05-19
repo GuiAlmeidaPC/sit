@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+captures/
+.cxx/
+
+# Kotlin / Java
+*.class
+out/
+hs_err_pid*
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+.externalNativeBuild/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -19,16 +19,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
@@ -132,14 +135,40 @@ private fun SprintCountRow(value: Int, onChange: (Int) -> Unit) {
 @Composable
 private fun Stepper(display: String, onDec: () -> Unit, onInc: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = onDec) { Text("−", fontWeight = FontWeight.Bold) }
+        StepperButton(icon = Icons.Filled.Remove, contentDescription = "Decrease", onClick = onDec)
         Text(
             text = display,
             style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(horizontal = 16.dp).width(80.dp),
+            modifier = Modifier.padding(horizontal = 12.dp).width(72.dp),
             fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
         )
-        OutlinedButton(onClick = onInc) { Text("+", fontWeight = FontWeight.Bold) }
+        StepperButton(icon = Icons.Filled.Add, contentDescription = "Increase", onClick = onInc)
+    }
+}
+
+@Composable
+private fun StepperButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(44.dp),
+        colors = IconButtonDefaults.outlinedIconButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = contentDescription)
+        }
     }
 }
 

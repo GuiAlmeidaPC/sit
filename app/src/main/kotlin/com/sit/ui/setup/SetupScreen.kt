@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +49,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,9 +63,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
@@ -291,7 +303,9 @@ private fun TimePickerRow(label: String, valueSec: Int, step: Int, onChange: (In
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
         Stepper(
-            display = formatMmSs(valueSec),
+            value = valueSec,
+            inputMode = StepperInputMode.TIME,
+            onValueSubmit = { onChange(it.coerceAtLeast(0)) },
             onDec = { onChange((valueSec - step).coerceAtLeast(0)) },
             onInc = { onChange(valueSec + step) },
         )
@@ -303,7 +317,9 @@ private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
         Stepper(
-            display = value.toString(),
+            value = value,
+            inputMode = StepperInputMode.INTEGER,
+            onValueSubmit = { onChange(it.coerceAtLeast(1)) },
             onDec = { onChange((value - 1).coerceAtLeast(1)) },
             onInc = { onChange(value + 1) },
         )
@@ -311,17 +327,90 @@ private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
 }
 
 @Composable
-private fun Stepper(display: String, onDec: () -> Unit, onInc: () -> Unit) {
+private fun Stepper(
+    value: Int,
+    inputMode: StepperInputMode,
+    onValueSubmit: (Int) -> Unit,
+    onDec: () -> Unit,
+    onInc: () -> Unit,
+) {
     val strings = LocalAppStrings.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
+    var isEditing by remember { mutableStateOf(false) }
+    var draftDigits by remember { mutableStateOf("") }
+
+    fun startEditing() {
+        draftDigits = ""
+        isEditing = true
+    }
+
+    fun stopEditing(submit: Boolean) {
+        if (submit) {
+            parseStepperValue(draftDigits, inputMode)?.let(onValueSubmit)
+        }
+        isEditing = false
+        keyboardController?.hide()
+    }
+
+    LaunchedEffect(isEditing) {
+        if (isEditing) {
+            focusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
+
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepperButton(icon = Icons.Filled.Remove, contentDescription = strings.decreaseLabel, onClick = onDec)
-        Text(
-            text = display,
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(horizontal = 12.dp).width(72.dp),
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-        )
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .width(72.dp)
+                .height(44.dp)
+                .pointerInput(value, inputMode) {
+                    detectTapGestures(
+                        onDoubleTap = { startEditing() },
+                        onLongPress = { startEditing() },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isEditing) {
+                BasicTextField(
+                    value = formatStepperDraft(draftDigits, inputMode),
+                    onValueChange = { updated ->
+                        draftDigits = updated.filter(Char::isDigit).takeLast(maxDigitsFor(inputMode))
+                        parseStepperValue(draftDigits, inputMode)?.let(onValueSubmit)
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { stopEditing(submit = true) }),
+                    modifier = Modifier
+                        .width(64.dp)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focusState ->
+                            if (!focusState.isFocused && isEditing) {
+                                stopEditing(submit = true)
+                            }
+                        },
+                )
+            } else {
+                Text(
+                    text = formatStepperValue(value, inputMode),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
         StepperButton(icon = Icons.Filled.Add, contentDescription = strings.increaseLabel, onClick = onInc)
     }
 }
@@ -542,6 +631,47 @@ private fun themeLabel(t: AppTheme, strings: com.sit.i18n.AppStrings): String = 
 private val languageChipWidth = 104.dp
 private val selectorButtonWidth = 72.dp
 private val selectorButtonHeight = 76.dp
+
+private enum class StepperInputMode {
+    TIME,
+    INTEGER,
+}
+
+private fun formatStepperValue(value: Int, inputMode: StepperInputMode): String = when (inputMode) {
+    StepperInputMode.TIME -> formatMmSs(value)
+    StepperInputMode.INTEGER -> value.toString()
+}
+
+private fun formatStepperDraft(digits: String, inputMode: StepperInputMode): String = when (inputMode) {
+    StepperInputMode.TIME -> formatTimeDigits(digits)
+    StepperInputMode.INTEGER -> digits.ifEmpty { "0" }
+}
+
+private fun parseStepperValue(digits: String, inputMode: StepperInputMode): Int? = when (inputMode) {
+    StepperInputMode.TIME -> parseTimeDigits(digits)
+    StepperInputMode.INTEGER -> digits.toIntOrNull()
+}
+
+private fun maxDigitsFor(inputMode: StepperInputMode): Int = when (inputMode) {
+    StepperInputMode.TIME -> 6
+    StepperInputMode.INTEGER -> 3
+}
+
+private fun formatTimeDigits(digits: String): String {
+    val sanitized = digits.filter(Char::isDigit).takeLast(maxDigitsFor(StepperInputMode.TIME))
+    if (sanitized.isEmpty()) return "0:00"
+    val secondsPart = sanitized.takeLast(2).padStart(2, '0')
+    val minutesPart = sanitized.dropLast(2).ifEmpty { "0" }
+    return "$minutesPart:$secondsPart"
+}
+
+private fun parseTimeDigits(digits: String): Int? {
+    val sanitized = digits.filter(Char::isDigit).takeLast(maxDigitsFor(StepperInputMode.TIME))
+    if (sanitized.isEmpty()) return null
+    val seconds = sanitized.takeLast(2).toIntOrNull() ?: return null
+    val minutes = sanitized.dropLast(2).ifEmpty { "0" }.toIntOrNull() ?: return null
+    return (minutes * 60) + seconds
+}
 
 private fun formatMmSs(sec: Int): String {
     val s = sec.coerceAtLeast(0)

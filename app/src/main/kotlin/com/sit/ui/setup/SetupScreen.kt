@@ -1,11 +1,9 @@
 package com.sit.ui.setup
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +49,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,17 +62,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardActions
@@ -300,14 +308,15 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun TimePickerRow(label: String, valueSec: Int, step: Int, onChange: (Int) -> Unit) {
+    val onTimeChange: (Int) -> Unit = { onChange(it.coerceIn(0, maxTimeValueSec)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
-        Stepper(
-            value = valueSec,
-            inputMode = StepperInputMode.TIME,
-            onValueSubmit = { onChange(it.coerceAtLeast(0)) },
-            onDec = { onChange((valueSec - step).coerceAtLeast(0)) },
-            onInc = { onChange(valueSec + step) },
+        TimeStepper(
+            label = label,
+            valueSec = valueSec,
+            onValueSubmit = onTimeChange,
+            onDec = { onTimeChange((valueSec - step).coerceAtLeast(0)) },
+            onInc = { onTimeChange((valueSec + step).coerceAtMost(maxTimeValueSec)) },
         )
     }
 }
@@ -318,7 +327,6 @@ private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
         Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
         Stepper(
             value = value,
-            inputMode = StepperInputMode.INTEGER,
             onValueSubmit = { onChange(it.coerceAtLeast(1)) },
             onDec = { onChange((value - 1).coerceAtLeast(1)) },
             onInc = { onChange(value + 1) },
@@ -327,91 +335,289 @@ private fun SprintCountRow(label: String, value: Int, onChange: (Int) -> Unit) {
 }
 
 @Composable
-private fun Stepper(
-    value: Int,
-    inputMode: StepperInputMode,
+private fun TimeStepper(
+    label: String,
+    valueSec: Int,
     onValueSubmit: (Int) -> Unit,
     onDec: () -> Unit,
     onInc: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusRequester = remember { FocusRequester() }
-    var isEditing by remember { mutableStateOf(false) }
-    var draftDigits by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+    val minuteFocusRequester = remember { FocusRequester() }
+    val secondFocusRequester = remember { FocusRequester() }
+    var activePart by remember { mutableStateOf<TimePart?>(null) }
+    var minuteField by remember { mutableStateOf(TextFieldValue("00")) }
+    var secondField by remember { mutableStateOf(TextFieldValue("00")) }
 
-    fun startEditing() {
-        draftDigits = ""
-        isEditing = true
-    }
-
-    fun stopEditing(submit: Boolean) {
-        if (submit) {
-            parseStepperValue(draftDigits, inputMode)?.let(onValueSubmit)
+    LaunchedEffect(valueSec, activePart) {
+        val formattedMinutes = formatTwoDigits((valueSec.coerceIn(0, maxTimeValueSec) / 60).coerceIn(0, 99))
+        val formattedSeconds = formatTwoDigits(valueSec.coerceIn(0, maxTimeValueSec) % 60)
+        if (activePart != TimePart.MINUTES) {
+            minuteField = TextFieldValue(formattedMinutes, TextRange(formattedMinutes.length))
         }
-        isEditing = false
-        keyboardController?.hide()
-    }
-
-    LaunchedEffect(isEditing) {
-        if (isEditing) {
-            focusRequester.requestFocus()
-            keyboardController?.show()
+        if (activePart != TimePart.SECONDS) {
+            secondField = TextFieldValue(formattedSeconds, TextRange(formattedSeconds.length))
         }
     }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepperButton(icon = Icons.Filled.Remove, contentDescription = strings.decreaseLabel, onClick = onDec)
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .width(72.dp)
-                .height(44.dp)
-                .pointerInput(value, inputMode) {
-                    detectTapGestures(
-                        onDoubleTap = { startEditing() },
-                        onLongPress = { startEditing() },
-                    )
+        StepperValueArea {
+            TimeSegmentField(
+                label = "$label minutes",
+                value = minuteField,
+                isFocused = activePart == TimePart.MINUTES,
+                focusRequester = minuteFocusRequester,
+                imeAction = ImeAction.Next,
+                onFocused = {
+                    activePart = TimePart.MINUTES
+                    minuteField = minuteField.copy(selection = TextRange(0, minuteField.text.length))
                 },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (isEditing) {
-                BasicTextField(
-                    value = formatStepperDraft(draftDigits, inputMode),
-                    onValueChange = { updated ->
-                        draftDigits = updated.filter(Char::isDigit).takeLast(maxDigitsFor(inputMode))
-                        parseStepperValue(draftDigits, inputMode)?.let(onValueSubmit)
-                    },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(onDone = { stopEditing(submit = true) }),
-                    modifier = Modifier
-                        .width(64.dp)
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { focusState ->
-                            if (!focusState.isFocused && isEditing) {
-                                stopEditing(submit = true)
-                            }
-                        },
-                )
-            } else {
-                Text(
-                    text = formatStepperValue(value, inputMode),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                )
-            }
+                onBlurred = {
+                    activePart = null
+                    val normalized = formatTwoDigits(parseMinutesPart(minuteField.text))
+                    minuteField = TextFieldValue(normalized, TextRange(normalized.length))
+                },
+                onValueChange = { updated ->
+                    val sanitized = sanitizeMinuteInput(updated.text)
+                    minuteField = TextFieldValue(sanitized, TextRange(sanitized.length))
+                    onValueSubmit(combineTimeParts(sanitized, secondField.text))
+                    if (sanitized.length == 2) {
+                        secondFocusRequester.requestFocus()
+                    }
+                },
+                keyboardActions = KeyboardActions(
+                    onNext = { secondFocusRequester.requestFocus() },
+                    onDone = { focusManager.clearFocus() },
+                ),
+            )
+            Text(
+                text = ":",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            TimeSegmentField(
+                label = "$label seconds",
+                value = secondField,
+                isFocused = activePart == TimePart.SECONDS,
+                focusRequester = secondFocusRequester,
+                imeAction = ImeAction.Done,
+                onFocused = {
+                    activePart = TimePart.SECONDS
+                    secondField = secondField.copy(selection = TextRange(0, secondField.text.length))
+                },
+                onBlurred = {
+                    activePart = null
+                    val normalized = formatTwoDigits(parseSecondsPart(secondField.text))
+                    secondField = TextFieldValue(normalized, TextRange(normalized.length))
+                },
+                onValueChange = { updated ->
+                    val sanitized = sanitizeSecondInput(updated.text)
+                    secondField = TextFieldValue(sanitized, TextRange(sanitized.length))
+                    onValueSubmit(combineTimeParts(minuteField.text, sanitized))
+                },
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            )
         }
         StepperButton(icon = Icons.Filled.Add, contentDescription = strings.increaseLabel, onClick = onInc)
+    }
+}
+
+@Composable
+private fun TimeSegmentField(
+    label: String,
+    value: TextFieldValue,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    imeAction: ImeAction,
+    onFocused: () -> Unit,
+    onBlurred: () -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
+    keyboardActions: KeyboardActions,
+) {
+    val activeUnderlineColor = MaterialTheme.colorScheme.primary
+    val inactiveUnderlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val selectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+    )
+    CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground,
+            ),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = imeAction,
+            ),
+            keyboardActions = keyboardActions,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) {
+                        onFocused()
+                    } else if (isFocused) {
+                        onBlurred()
+                    }
+                },
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .width(timeSegmentWidth)
+                        .height(stepperEditorHeight)
+                        .clickable { focusRequester.requestFocus() }
+                        .drawBehind {
+                            val strokeColor = if (isFocused) activeUnderlineColor else inactiveUnderlineColor
+                            drawLine(
+                                color = strokeColor,
+                                start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                                end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                                strokeWidth = 2.dp.toPx(),
+                            )
+                        }
+                        .semantics { contentDescription = label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    innerTextField()
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun Stepper(
+    value: Int,
+    onValueSubmit: (Int) -> Unit,
+    onDec: () -> Unit,
+    onInc: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+    var fieldValue by remember { mutableStateOf(TextFieldValue(value.toString())) }
+
+    LaunchedEffect(value, isFocused) {
+        if (!isFocused) {
+            val normalized = value.coerceAtLeast(1).toString()
+            fieldValue = TextFieldValue(normalized, TextRange(normalized.length))
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        StepperButton(icon = Icons.Filled.Remove, contentDescription = strings.decreaseLabel, onClick = onDec)
+        StepperValueArea {
+            NumberSegmentField(
+                label = strings.sprintsLabel,
+                value = fieldValue,
+                isFocused = isFocused,
+                focusRequester = focusRequester,
+                onFocused = {
+                    isFocused = true
+                    fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+                },
+                onBlurred = {
+                    isFocused = false
+                    val normalized = value.coerceAtLeast(1).toString()
+                    fieldValue = TextFieldValue(normalized, TextRange(normalized.length))
+                },
+                onValueChange = { updated ->
+                    val sanitized = updated.text.filter(Char::isDigit).take(3)
+                    fieldValue = TextFieldValue(sanitized, TextRange(sanitized.length))
+                    sanitized.toIntOrNull()?.let { onValueSubmit(it.coerceAtLeast(1)) }
+                },
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            )
+        }
+        StepperButton(icon = Icons.Filled.Add, contentDescription = strings.increaseLabel, onClick = onInc)
+    }
+}
+
+@Composable
+private fun StepperValueArea(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier
+            .width(stepperEditorWidth)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun NumberSegmentField(
+    label: String,
+    value: TextFieldValue,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onBlurred: () -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
+    keyboardActions: KeyboardActions,
+) {
+    val activeUnderlineColor = MaterialTheme.colorScheme.primary
+    val inactiveUnderlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val selectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+    )
+    CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground,
+            ),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = keyboardActions,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) {
+                        onFocused()
+                    } else if (isFocused) {
+                        onBlurred()
+                    }
+                },
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .width(numberSegmentWidth)
+                        .height(stepperEditorHeight)
+                        .clickable { focusRequester.requestFocus() }
+                        .drawBehind {
+                            val strokeColor = if (isFocused) activeUnderlineColor else inactiveUnderlineColor
+                            drawLine(
+                                color = strokeColor,
+                                start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                                end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                                strokeWidth = 2.dp.toPx(),
+                            )
+                        }
+                        .semantics { contentDescription = label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    innerTextField()
+                }
+            },
+        )
     }
 }
 
@@ -631,47 +837,34 @@ private fun themeLabel(t: AppTheme, strings: com.sit.i18n.AppStrings): String = 
 private val languageChipWidth = 104.dp
 private val selectorButtonWidth = 72.dp
 private val selectorButtonHeight = 76.dp
+private val stepperEditorWidth = 120.dp
+private val stepperEditorHeight = 48.dp
+private val timeSegmentWidth = 48.dp
+private val numberSegmentWidth = 64.dp
 
-private enum class StepperInputMode {
-    TIME,
-    INTEGER,
+private const val maxTimeValueSec = (99 * 60) + 59
+
+private enum class TimePart {
+    MINUTES,
+    SECONDS,
 }
 
-private fun formatStepperValue(value: Int, inputMode: StepperInputMode): String = when (inputMode) {
-    StepperInputMode.TIME -> formatMmSs(value)
-    StepperInputMode.INTEGER -> value.toString()
+private fun sanitizeMinuteInput(text: String): String {
+    return text.filter(Char::isDigit).take(2)
 }
 
-private fun formatStepperDraft(digits: String, inputMode: StepperInputMode): String = when (inputMode) {
-    StepperInputMode.TIME -> formatTimeDigits(digits)
-    StepperInputMode.INTEGER -> digits.ifEmpty { "0" }
+private fun sanitizeSecondInput(text: String): String {
+    return text.filter(Char::isDigit).take(2)
 }
 
-private fun parseStepperValue(digits: String, inputMode: StepperInputMode): Int? = when (inputMode) {
-    StepperInputMode.TIME -> parseTimeDigits(digits)
-    StepperInputMode.INTEGER -> digits.toIntOrNull()
-}
+private fun parseMinutesPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 99) ?: 0
 
-private fun maxDigitsFor(inputMode: StepperInputMode): Int = when (inputMode) {
-    StepperInputMode.TIME -> 6
-    StepperInputMode.INTEGER -> 3
-}
+private fun parseSecondsPart(text: String): Int = text.filter(Char::isDigit).toIntOrNull()?.coerceIn(0, 59) ?: 0
 
-private fun formatTimeDigits(digits: String): String {
-    val sanitized = digits.filter(Char::isDigit).takeLast(maxDigitsFor(StepperInputMode.TIME))
-    if (sanitized.isEmpty()) return "0:00"
-    val secondsPart = sanitized.takeLast(2).padStart(2, '0')
-    val minutesPart = sanitized.dropLast(2).ifEmpty { "0" }
-    return "$minutesPart:$secondsPart"
-}
+private fun combineTimeParts(minutesText: String, secondsText: String): Int =
+    (parseMinutesPart(minutesText) * 60) + parseSecondsPart(secondsText)
 
-private fun parseTimeDigits(digits: String): Int? {
-    val sanitized = digits.filter(Char::isDigit).takeLast(maxDigitsFor(StepperInputMode.TIME))
-    if (sanitized.isEmpty()) return null
-    val seconds = sanitized.takeLast(2).toIntOrNull() ?: return null
-    val minutes = sanitized.dropLast(2).ifEmpty { "0" }.toIntOrNull() ?: return null
-    return (minutes * 60) + seconds
-}
+private fun formatTwoDigits(value: Int): String = value.coerceIn(0, 99).toString().padStart(2, '0')
 
 private fun formatMmSs(sec: Int): String {
     val s = sec.coerceAtLeast(0)

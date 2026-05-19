@@ -1,0 +1,272 @@
+package com.sit.ui.setup
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.sit.domain.AppTheme
+import com.sit.domain.AudioTrack
+import com.sit.domain.ValidationState
+import com.sit.domain.WorkoutConfig
+import com.sit.ui.theme.ThemeCatalog
+
+@Composable
+fun SetupScreen(
+    state: SetupUiState,
+    onTotalSecChange: (Int) -> Unit,
+    onSprintsChange: (Int) -> Unit,
+    onSprintSecChange: (Int) -> Unit,
+    onRestSecChange: (Int) -> Unit,
+    onAudioChange: (AudioTrack) -> Unit,
+    onThemeChange: (AppTheme) -> Unit,
+    onStart: () -> Unit,
+) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "SIT",
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            TimePickerRow("Total workout", state.config.totalSec, step = 30, onTotalSecChange)
+            SprintCountRow(state.config.sprints, onSprintsChange)
+            TimePickerRow("Sprint", state.config.sprintSec, step = 5, onSprintSecChange)
+            TimePickerRow("Rest", state.config.restSec, step = 5, onRestSecChange)
+
+            InfoCard(state.config, state.validation)
+
+            SectionLabel("Sound")
+            AudioSelector(state.config.audio, onAudioChange)
+
+            SectionLabel("Theme")
+            ThemeSelector(state.theme, onThemeChange)
+
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onStart,
+                enabled = state.canStart,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) {
+                Text("START WORKOUT", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+    )
+}
+
+@Composable
+private fun TimePickerRow(label: String, valueSec: Int, step: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
+        Stepper(
+            display = formatMmSs(valueSec),
+            onDec = { onChange((valueSec - step).coerceAtLeast(0)) },
+            onInc = { onChange(valueSec + step) },
+        )
+    }
+}
+
+@Composable
+private fun SprintCountRow(value: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Sprints", modifier = Modifier.width(140.dp), style = MaterialTheme.typography.bodyLarge)
+        Stepper(
+            display = value.toString(),
+            onDec = { onChange((value - 1).coerceAtLeast(1)) },
+            onInc = { onChange(value + 1) },
+        )
+    }
+}
+
+@Composable
+private fun Stepper(display: String, onDec: () -> Unit, onInc: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedButton(onClick = onDec) { Text("−", fontWeight = FontWeight.Bold) }
+        Text(
+            text = display,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(horizontal = 16.dp).width(80.dp),
+            fontWeight = FontWeight.SemiBold,
+        )
+        OutlinedButton(onClick = onInc) { Text("+", fontWeight = FontWeight.Bold) }
+    }
+}
+
+@Composable
+private fun InfoCard(config: WorkoutConfig, validation: ValidationState) {
+    val isInvalid = validation is ValidationState.Invalid
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isInvalid) MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.surfaceVariant
+        ),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            if (isInvalid) {
+                Text(
+                    "⚠ ${(validation as ValidationState.Invalid).reason}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else {
+                Text(
+                    buildString {
+                        append("Workout: ")
+                        append(config.sprints)
+                        append(" cycles of ")
+                        append(formatMmSs(config.individualRunningSec()))
+                        append(" Run ➔ ")
+                        append(formatMmSs(config.sprintSec))
+                        append(" Sprint ➔ ")
+                        append(formatMmSs(config.restSec))
+                        append(" Rest.")
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioSelector(selected: AudioTrack, onChange: (AudioTrack) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AudioChip(AudioTrack.DOG_BARKING, "Dog", Icons.Filled.Pets, selected, onChange)
+        AudioChip(AudioTrack.HORROR_CHASE, "Horror", Icons.Filled.GraphicEq, selected, onChange)
+        AudioChip(AudioTrack.STANDARD_BEEP, "Beep", Icons.Filled.MusicNote, selected, onChange)
+    }
+}
+
+@Composable
+private fun AudioChip(
+    track: AudioTrack,
+    label: String,
+    icon: ImageVector,
+    selected: AudioTrack,
+    onChange: (AudioTrack) -> Unit,
+) {
+    val isSelected = track == selected
+    val border = if (isSelected) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .border(2.dp, border, RoundedCornerShape(12.dp))
+            .clickable { onChange(track) }
+            .padding(12.dp),
+    ) {
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun ThemeSelector(selected: AppTheme, onChange: (AppTheme) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppTheme.entries.forEach { theme ->
+            ThemeSwatch(theme, selected = theme == selected, onClick = { onChange(theme) })
+        }
+    }
+}
+
+@Composable
+private fun ThemeSwatch(theme: AppTheme, selected: Boolean, onClick: () -> Unit) {
+    val palette = ThemeCatalog.palette(theme)
+    val border = if (selected) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .border(2.dp, border, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+    ) {
+        Row {
+            Dot(palette.rest)
+            Spacer(Modifier.width(2.dp))
+            Dot(palette.run)
+            Spacer(Modifier.width(2.dp))
+            Dot(palette.sprint)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(themeLabel(theme), style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun Dot(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(14.dp)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+private fun themeLabel(t: AppTheme): String = when (t) {
+    AppTheme.CLASSIC -> "Classic"
+    AppTheme.NEON -> "Neon"
+    AppTheme.FOREST -> "Forest"
+    AppTheme.MONO -> "Mono"
+    AppTheme.GLITTER_POP -> "Glitter"
+}
+
+private fun formatMmSs(sec: Int): String {
+    val s = sec.coerceAtLeast(0)
+    return "%d:%02d".format(s / 60, s % 60)
+}

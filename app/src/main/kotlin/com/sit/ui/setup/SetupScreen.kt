@@ -541,11 +541,21 @@ private fun TimeEditorField(
             primaryField = TextFieldValue(normalized, TextRange(normalized.length))
         },
         onValueChange = { updated ->
+            val oldText = primaryField.text
             val sanitized = sanitizePrimaryInput(updated.text)
-            primaryField = TextFieldValue(sanitized, TextRange(sanitized.length))
-            onValueSubmit(combineTimeParts(sanitized, secondaryField.text, mode))
-            if (sanitized.length == 2) {
-                secondFocusRequester.requestFocus()
+            val textChanged = oldText != sanitized
+            
+            primaryField = if (textChanged) {
+                TextFieldValue(sanitized, TextRange(sanitized.length))
+            } else {
+                TextFieldValue(sanitized, updated.selection)
+            }
+            
+            if (textChanged) {
+                onValueSubmit(combineTimeParts(sanitized, secondaryField.text, mode))
+                if (sanitized.length == 2 && activePart == TimePart.MINUTES) {
+                    secondFocusRequester.requestFocus()
+                }
             }
         },
         keyboardActions = KeyboardActions(
@@ -576,9 +586,19 @@ private fun TimeEditorField(
             secondaryField = TextFieldValue(normalized, TextRange(normalized.length))
         },
         onValueChange = { updated ->
+            val oldText = secondaryField.text
             val sanitized = sanitizeSecondaryInput(updated.text)
-            secondaryField = TextFieldValue(sanitized, TextRange(sanitized.length))
-            onValueSubmit(combineTimeParts(primaryField.text, sanitized, mode))
+            val textChanged = oldText != sanitized
+            
+            secondaryField = if (textChanged) {
+                TextFieldValue(sanitized, TextRange(sanitized.length))
+            } else {
+                TextFieldValue(sanitized, updated.selection)
+            }
+            
+            if (textChanged) {
+                onValueSubmit(combineTimeParts(primaryField.text, sanitized, mode))
+            }
         },
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
     )
@@ -701,9 +721,19 @@ private fun Stepper(
                     fieldValue = TextFieldValue(normalized, TextRange(normalized.length))
                 },
                 onValueChange = { updated ->
+                    val oldText = fieldValue.text
                     val sanitized = updated.text.filter(Char::isDigit).take(3)
-                    fieldValue = TextFieldValue(sanitized, TextRange(sanitized.length))
-                    sanitized.toIntOrNull()?.let { onValueSubmit(it.coerceAtLeast(1)) }
+                    val textChanged = oldText != sanitized
+                    
+                    fieldValue = if (textChanged) {
+                        TextFieldValue(sanitized, TextRange(sanitized.length))
+                    } else {
+                        TextFieldValue(sanitized, updated.selection)
+                    }
+                    
+                    if (textChanged) {
+                        sanitized.toIntOrNull()?.let { onValueSubmit(it.coerceAtLeast(1)) }
+                    }
                 },
                 keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             )

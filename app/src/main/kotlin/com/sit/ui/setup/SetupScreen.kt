@@ -5,6 +5,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
@@ -77,6 +78,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -122,6 +124,7 @@ fun SetupScreen(
     val strings = LocalAppStrings.current
     val selectedTabIndex = if (state.mode == WorkoutMode.BASIC) 0 else 1
     val listState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -167,7 +170,10 @@ fun SetupScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { focusManager.clearFocus() })
+                        },
                     state = listState,
                     contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),

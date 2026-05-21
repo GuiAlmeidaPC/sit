@@ -915,7 +915,7 @@ private fun AudioChip(
             .clip(RoundedCornerShape(12.dp))
             .border(2.dp, border, RoundedCornerShape(12.dp))
             .clickable { onChange(track) }
-            .padding(12.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
     ) {
         Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(4.dp))
@@ -1041,7 +1041,7 @@ private fun themeLabel(t: AppTheme, strings: com.sit.i18n.AppStrings): String = 
 }
 
 private val languageChipWidth = 104.dp
-private val selectorButtonWidth = 72.dp
+private val selectorButtonWidth = 80.dp
 private val selectorButtonHeight = 76.dp
 private val stepperEditorWidth = 120.dp
 private val stepperEditorHeight = 58.dp

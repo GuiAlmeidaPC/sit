@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
@@ -889,10 +889,10 @@ private fun AudioSelector(selected: AudioTrack, onChange: (AudioTrack) -> Unit) 
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        AudioChip(AudioTrack.ELECTRO_RUSH, strings.electroLabel, Icons.Filled.Bolt, selected, onChange)
         AudioChip(AudioTrack.DOG_BARKING, strings.dogLabel, Icons.Filled.Pets, selected, onChange)
         AudioChip(AudioTrack.HORROR_CHASE, strings.horrorLabel, Icons.Filled.GraphicEq, selected, onChange)
-        AudioChip(AudioTrack.ELECTRO_RUSH, strings.electroLabel, Icons.Filled.Bolt, selected, onChange)
-        AudioChip(AudioTrack.STANDARD_BEEP, strings.beepLabel, Icons.Filled.MusicNote, selected, onChange)
+        AudioChip(AudioTrack.NONE, strings.noSoundLabel, Icons.Filled.MusicOff, selected, onChange)
     }
 }
 

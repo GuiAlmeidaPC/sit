@@ -1,7 +1,7 @@
 # Product Specification: "SIT" (Android Native Edition)
 
 ## 1. Product Overview
-**Description:** A native Android interval running app with two workout setup modes: **Basic** and **Advanced**. In Basic mode, users set total workout time, number of sprints, sprint length, and rest length. In Advanced mode, users still set total workout time and a shared rest length, but can build a list of sprints with different durations for each sprint. In both cases, the app dynamically calculates the steady-pace "Running" intervals to fit the total time constraint exactly. Motivation is driven by sprint-only audio tracks (dog, horror, electro, or beep) that play exclusively during sprints.
+**Description:** A native Android interval running app with two workout setup modes: **Basic** and **Advanced**. In Basic mode, users set total workout time, number of sprints, sprint length, and rest length. In Advanced mode, users still set total workout time and a shared rest length, but can build a list of sprints with different durations for each sprint. In both cases, the app dynamically calculates the steady-pace "Running" intervals to fit the total time constraint exactly. Motivation is driven by sprint-only audio tracks (electro, dog, horror, or no sound) that play exclusively during sprints.
 **Platform:** Android (Exclusive).
 
 ## 2. Technical Stack Architecture
@@ -36,7 +36,7 @@ The user inputs their fixed constraints, and the app handles the rest.
     * **Sprint / Rest:** `MM:SS`
     * Each segment has a subtle unit label (`hr`, `min`, `sec`) and is edited independently with the numeric keyboard.
 * **Auto-Calculated "Running" Duration (Read-Only):** The app automatically calculates and displays the steady-pace running time required between sprint cycles.
-* **Audio Selector:** Choose the sprint motivation sound (**Dog Barking, Horror Chase, Electro Rush, Standard Beep**).
+* **Audio Selector:** Choose the sprint motivation sound (**Electro Rush, Dog Barking, Horror Chase, No Sound**).
 * **Theme Selector:** Choose a pre-defined color scheme that styles the entire app (Setup, Active Run, and Summary screens). Selection persists across sessions via DataStore. Pre-defined themes:
     * **Classic** — default traffic-light palette (Blue rest / Orange run / Red sprint).
     * **Classic Dark** — dark variant of the Classic palette.

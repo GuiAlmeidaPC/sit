@@ -30,6 +30,7 @@ class AudioController(private val context: Context) {
 
     fun playSprint(track: AudioTrack) {
         stopSprint()
+        if (track == AudioTrack.NONE) return
         if (!requestFocus()) return
         val resId = trackResource(track)
         player = MediaPlayer.create(context, resId)?.apply {
@@ -89,6 +90,6 @@ class AudioController(private val context: Context) {
         AudioTrack.DOG_BARKING -> R.raw.bark_loop
         AudioTrack.HORROR_CHASE -> R.raw.horror_chase
         AudioTrack.ELECTRO_RUSH -> R.raw.electro_rush
-        AudioTrack.STANDARD_BEEP -> R.raw.standard_beep
+        AudioTrack.NONE -> error("No resource for NONE track")
     }
 }

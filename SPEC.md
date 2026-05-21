@@ -139,7 +139,7 @@ Generated APK:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Optional renamed copy:
+Always copy/generate the renamed copy:
 
 ```bash
 cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sit-app.apk

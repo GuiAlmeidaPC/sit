@@ -37,6 +37,11 @@ A native Android interval running app built with Kotlin, Jetpack Compose, and Co
 ```
 The output APK will be available at `app/build/outputs/apk/debug/app-debug.apk`.
 
+**Note:** Always copy this to `sit-app.apk` in the same directory:
+```bash
+cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sit-app.apk
+```
+
 ### Install on Emulator
 Ensure your Android emulator (e.g., `emulator-5554`) is running, then execute:
 ```bash

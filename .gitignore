@@ -29,3 +29,6 @@ hs_err_pid*
 # OS
 .DS_Store
 Thumbs.db
+
+# Antigravity CLI Metadata
+.antigravitycli/

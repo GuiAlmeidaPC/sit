@@ -28,10 +28,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.Pets
@@ -95,6 +98,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
+import com.sit.domain.Block
+import com.sit.domain.BlockType
+import com.sit.domain.RepeatBlock
+import com.sit.domain.SimpleBlock
 import com.sit.domain.ValidationState
 import com.sit.domain.WorkoutConfig
 import com.sit.domain.WorkoutMode
@@ -118,11 +125,16 @@ fun SetupScreen(
     onThemeChange: (AppTheme) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
     onStart: () -> Unit,
+    advancedPlusCallbacks: AdvancedPlusCallbacks,
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val strings = LocalAppStrings.current
-    val selectedTabIndex = if (state.mode == WorkoutMode.BASIC) 0 else 1
+    val selectedTabIndex = when (state.mode) {
+        WorkoutMode.BASIC -> 0
+        WorkoutMode.ADVANCED -> 1
+        WorkoutMode.ADVANCED_PLUS -> 2
+    }
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
 
@@ -197,6 +209,11 @@ fun SetupScreen(
                                     onClick = { onModeChange(WorkoutMode.ADVANCED) },
                                     text = { Text(strings.advancedModeLabel) },
                                 )
+                                Tab(
+                                    selected = selectedTabIndex == 2,
+                                    onClick = { onModeChange(WorkoutMode.ADVANCED_PLUS) },
+                                    text = { Text(strings.advancedPlusModeLabel) },
+                                )
                             }
                         }
                     }
@@ -205,39 +222,46 @@ fun SetupScreen(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            TimePickerRow(
-                                label = strings.totalWorkoutLabel,
-                                valueSec = state.config.totalSec,
-                                step = 60,
-                                mode = TimeEditorMode.HOURS_MINUTES,
-                                onChange = onTotalSecChange,
-                            )
-
-                            if (state.mode == WorkoutMode.BASIC) {
-                                SprintCountRow(strings.sprintsLabel, state.config.sprints, onSprintsChange)
-                                TimePickerRow(
-                                    label = strings.sprintLabel,
-                                    valueSec = state.config.sprintSec,
-                                    step = 5,
-                                    mode = TimeEditorMode.MINUTES_SECONDS,
-                                    onChange = onSprintSecChange,
+                            if (state.mode == WorkoutMode.ADVANCED_PLUS) {
+                                AdvancedPlusSection(
+                                    blocks = state.config.advancedPlusBlocks,
+                                    callbacks = advancedPlusCallbacks,
                                 )
                             } else {
-                                AdvancedSprintSection(
-                                    sprintDurations = state.config.advancedSprintSecs,
-                                    onSprintChange = onAdvancedSprintChange,
-                                    onAddSprint = onAddAdvancedSprint,
-                                    onRemoveSprint = onRemoveAdvancedSprint,
+                                TimePickerRow(
+                                    label = strings.totalWorkoutLabel,
+                                    valueSec = state.config.totalSec,
+                                    step = 60,
+                                    mode = TimeEditorMode.HOURS_MINUTES,
+                                    onChange = onTotalSecChange,
+                                )
+
+                                if (state.mode == WorkoutMode.BASIC) {
+                                    SprintCountRow(strings.sprintsLabel, state.config.sprints, onSprintsChange)
+                                    TimePickerRow(
+                                        label = strings.sprintLabel,
+                                        valueSec = state.config.sprintSec,
+                                        step = 5,
+                                        mode = TimeEditorMode.MINUTES_SECONDS,
+                                        onChange = onSprintSecChange,
+                                    )
+                                } else {
+                                    AdvancedSprintSection(
+                                        sprintDurations = state.config.advancedSprintSecs,
+                                        onSprintChange = onAdvancedSprintChange,
+                                        onAddSprint = onAddAdvancedSprint,
+                                        onRemoveSprint = onRemoveAdvancedSprint,
+                                    )
+                                }
+
+                                TimePickerRow(
+                                    label = strings.restLabel,
+                                    valueSec = state.config.restSec,
+                                    step = 5,
+                                    mode = TimeEditorMode.MINUTES_SECONDS,
+                                    onChange = onRestSecChange,
                                 )
                             }
-
-                            TimePickerRow(
-                                label = strings.restLabel,
-                                valueSec = state.config.restSec,
-                                step = 5,
-                                mode = TimeEditorMode.MINUTES_SECONDS,
-                                onChange = onRestSecChange,
-                            )
 
                             InfoCard(state.config, state.validation)
 
@@ -1118,4 +1142,290 @@ private fun formatTwoDigits(value: Int): String = value.coerceIn(0, 99).toString
 private fun formatMmSs(sec: Int): String {
     val s = sec.coerceAtLeast(0)
     return "%d:%02d".format(s / 60, s % 60)
+}
+
+data class AdvancedPlusCallbacks(
+    val onAddSimple: (BlockType) -> Unit,
+    val onAddRepeat: () -> Unit,
+    val onRemoveBlock: (String) -> Unit,
+    val onMoveBlock: (String, Int) -> Unit,
+    val onSimpleTypeChange: (String, BlockType) -> Unit,
+    val onSimpleDurationChange: (String, Int) -> Unit,
+    val onRepeatCountChange: (String, Int) -> Unit,
+    val onAddRepeatStep: (String, BlockType) -> Unit,
+    val onRemoveRepeatStep: (String, String) -> Unit,
+    val onRepeatStepTypeChange: (String, String, BlockType) -> Unit,
+    val onRepeatStepDurationChange: (String, String, Int) -> Unit,
+)
+
+private val advancedPlusSimpleTypes: List<BlockType> =
+    listOf(BlockType.WARMUP, BlockType.RUN, BlockType.WALK, BlockType.REST)
+
+@Composable
+private fun AdvancedPlusSection(
+    blocks: List<Block>,
+    callbacks: AdvancedPlusCallbacks,
+) {
+    val strings = LocalAppStrings.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        blocks.forEachIndexed { index, block ->
+            when (block) {
+                is SimpleBlock -> SimpleBlockCard(
+                    block = block,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < blocks.lastIndex,
+                    onTypeChange = { callbacks.onSimpleTypeChange(block.id, it) },
+                    onDurationChange = { callbacks.onSimpleDurationChange(block.id, it) },
+                    onRemove = { callbacks.onRemoveBlock(block.id) },
+                    onMoveUp = { callbacks.onMoveBlock(block.id, -1) },
+                    onMoveDown = { callbacks.onMoveBlock(block.id, +1) },
+                )
+                is RepeatBlock -> RepeatBlockCard(
+                    block = block,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < blocks.lastIndex,
+                    onRepeatCountChange = { callbacks.onRepeatCountChange(block.id, it) },
+                    onAddStep = { callbacks.onAddRepeatStep(block.id, BlockType.RUN) },
+                    onRemoveStep = { stepId -> callbacks.onRemoveRepeatStep(block.id, stepId) },
+                    onStepTypeChange = { stepId, type ->
+                        callbacks.onRepeatStepTypeChange(block.id, stepId, type)
+                    },
+                    onStepDurationChange = { stepId, dur ->
+                        callbacks.onRepeatStepDurationChange(block.id, stepId, dur)
+                    },
+                    onRemove = { callbacks.onRemoveBlock(block.id) },
+                    onMoveUp = { callbacks.onMoveBlock(block.id, -1) },
+                    onMoveDown = { callbacks.onMoveBlock(block.id, +1) },
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { callbacks.onAddSimple(BlockType.RUN) },
+                modifier = Modifier.weight(1f),
+            ) { Text(strings.addStepLabel) }
+            Button(
+                onClick = callbacks.onAddRepeat,
+                modifier = Modifier.weight(1f),
+            ) { Text(strings.addRepeatLabel) }
+        }
+    }
+}
+
+@Composable
+private fun SimpleBlockCard(
+    block: SimpleBlock,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onTypeChange: (BlockType) -> Unit,
+    onDurationChange: (Int) -> Unit,
+    onRemove: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BlockHeaderRow(
+                title = strings.blockTypeLabel(block.type),
+                canMoveUp = canMoveUp,
+                canMoveDown = canMoveDown,
+                onMoveUp = onMoveUp,
+                onMoveDown = onMoveDown,
+                onRemove = onRemove,
+            )
+            BlockTypeChips(
+                selected = block.type,
+                onChange = onTypeChange,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${strings.totalTimeLabel}:",
+                    modifier = Modifier.width(120.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                StepperValueArea {
+                    TimeEditorField(
+                        label = strings.blockTypeLabel(block.type),
+                        valueSec = block.durationSec,
+                        mode = TimeEditorMode.MINUTES_SECONDS,
+                        onValueSubmit = onDurationChange,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RepeatBlockCard(
+    block: RepeatBlock,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onRepeatCountChange: (Int) -> Unit,
+    onAddStep: () -> Unit,
+    onRemoveStep: (String) -> Unit,
+    onStepTypeChange: (String, BlockType) -> Unit,
+    onStepDurationChange: (String, Int) -> Unit,
+    onRemove: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BlockHeaderRow(
+                title = strings.repeatBlockLabel,
+                icon = Icons.Filled.Loop,
+                canMoveUp = canMoveUp,
+                canMoveDown = canMoveDown,
+                onMoveUp = onMoveUp,
+                onMoveDown = onMoveDown,
+                onRemove = onRemove,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = strings.repeatsLabel,
+                    modifier = Modifier.width(120.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Stepper(
+                    value = block.repeats,
+                    onValueSubmit = onRepeatCountChange,
+                    onDec = { onRepeatCountChange((block.repeats - 1).coerceAtLeast(1)) },
+                    onInc = { onRepeatCountChange(block.repeats + 1) },
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            block.steps.forEach { step ->
+                RepeatStepRow(
+                    step = step,
+                    canRemove = block.steps.size > 1,
+                    onTypeChange = { onStepTypeChange(step.id, it) },
+                    onDurationChange = { onStepDurationChange(step.id, it) },
+                    onRemove = { onRemoveStep(step.id) },
+                )
+            }
+            Button(onClick = onAddStep, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.addStepLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RepeatStepRow(
+    step: SimpleBlock,
+    canRemove: Boolean,
+    onTypeChange: (BlockType) -> Unit,
+    onDurationChange: (Int) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        BlockTypeChips(
+            selected = step.type,
+            onChange = onTypeChange,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepperValueArea {
+                TimeEditorField(
+                    label = strings.blockTypeLabel(step.type),
+                    valueSec = step.durationSec,
+                    mode = TimeEditorMode.MINUTES_SECONDS,
+                    onValueSubmit = onDurationChange,
+                )
+            }
+            IconButton(
+                onClick = onRemove,
+                enabled = canRemove,
+                modifier = Modifier.size(44.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                ),
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = strings.removeBlockLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlockHeaderRow(
+    title: String,
+    icon: ImageVector? = null,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.ArrowUpward, contentDescription = strings.moveUpLabel)
+        }
+        IconButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.ArrowDownward, contentDescription = strings.moveDownLabel)
+        }
+        IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.Delete, contentDescription = strings.removeBlockLabel)
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun BlockTypeChips(
+    selected: BlockType,
+    onChange: (BlockType) -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        advancedPlusSimpleTypes.forEach { type ->
+            val isSelected = type == selected
+            val border = if (isSelected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(2.dp, border, RoundedCornerShape(20.dp))
+                    .clickable { onChange(type) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = strings.blockTypeLabel(type),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
 }

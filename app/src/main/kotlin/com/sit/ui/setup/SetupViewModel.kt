@@ -10,9 +10,14 @@ import com.sit.data.UserPrefsRepository
 import com.sit.domain.AppLanguage
 import com.sit.domain.AppTheme
 import com.sit.domain.AudioTrack
+import com.sit.domain.Block
+import com.sit.domain.BlockType
+import com.sit.domain.RepeatBlock
+import com.sit.domain.SimpleBlock
 import com.sit.domain.ValidationState
 import com.sit.domain.WorkoutConfig
 import com.sit.domain.WorkoutMode
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -91,6 +96,121 @@ class SetupViewModel(private val repo: UserPrefsRepository) : ViewModel() {
             )
         )
     }
+    fun addAdvancedPlusSimpleBlock(type: BlockType = BlockType.RUN, durationSec: Int = 30) = update {
+        require(type != BlockType.REPEAT)
+        it.copy(
+            config = it.config.copy(
+                advancedPlusBlocks = it.config.advancedPlusBlocks + SimpleBlock(
+                    id = newId(),
+                    type = type,
+                    durationSec = durationSec,
+                ),
+            )
+        )
+    }
+
+    fun addAdvancedPlusRepeatBlock() = update {
+        it.copy(
+            config = it.config.copy(
+                advancedPlusBlocks = it.config.advancedPlusBlocks + RepeatBlock(
+                    id = newId(),
+                    repeats = 4,
+                    steps = listOf(
+                        SimpleBlock(id = newId(), type = BlockType.RUN, durationSec = 30),
+                        SimpleBlock(id = newId(), type = BlockType.WALK, durationSec = 60),
+                    ),
+                ),
+            )
+        )
+    }
+
+    fun removeAdvancedPlusBlock(blockId: String) = updateBlocks { blocks ->
+        blocks.filter { it.id != blockId }
+    }
+
+    fun moveAdvancedPlusBlock(blockId: String, delta: Int) = updateBlocks { blocks ->
+        val index = blocks.indexOfFirst { it.id == blockId }
+        val target = index + delta
+        if (index < 0 || target !in blocks.indices) blocks else blocks.toMutableList().apply {
+            add(target, removeAt(index))
+        }
+    }
+
+    fun updateAdvancedPlusSimpleType(blockId: String, type: BlockType) = updateBlocks { blocks ->
+        require(type != BlockType.REPEAT)
+        blocks.map { block ->
+            if (block is SimpleBlock && block.id == blockId) block.copy(type = type) else block
+        }
+    }
+
+    fun updateAdvancedPlusSimpleDuration(blockId: String, durationSec: Int) = updateBlocks { blocks ->
+        blocks.map { block ->
+            if (block is SimpleBlock && block.id == blockId) {
+                block.copy(durationSec = durationSec.coerceAtLeast(0))
+            } else block
+        }
+    }
+
+    fun updateAdvancedPlusRepeatCount(blockId: String, repeats: Int) = updateBlocks { blocks ->
+        blocks.map { block ->
+            if (block is RepeatBlock && block.id == blockId) {
+                block.copy(repeats = repeats.coerceAtLeast(1))
+            } else block
+        }
+    }
+
+    fun addAdvancedPlusRepeatStep(
+        blockId: String,
+        type: BlockType = BlockType.RUN,
+        durationSec: Int = 30,
+    ) = updateBlocks { blocks ->
+        require(type != BlockType.REPEAT)
+        blocks.map { block ->
+            if (block is RepeatBlock && block.id == blockId) {
+                block.copy(steps = block.steps + SimpleBlock(newId(), type, durationSec))
+            } else block
+        }
+    }
+
+    fun removeAdvancedPlusRepeatStep(blockId: String, stepId: String) = updateBlocks { blocks ->
+        blocks.map { block ->
+            if (block is RepeatBlock && block.id == blockId) {
+                block.copy(steps = block.steps.filter { it.id != stepId })
+            } else block
+        }
+    }
+
+    fun updateAdvancedPlusRepeatStepType(blockId: String, stepId: String, type: BlockType) =
+        updateBlocks { blocks ->
+            require(type != BlockType.REPEAT)
+            blocks.map { block ->
+                if (block is RepeatBlock && block.id == blockId) {
+                    block.copy(
+                        steps = block.steps.map { s -> if (s.id == stepId) s.copy(type = type) else s },
+                    )
+                } else block
+            }
+        }
+
+    fun updateAdvancedPlusRepeatStepDuration(blockId: String, stepId: String, durationSec: Int) =
+        updateBlocks { blocks ->
+            blocks.map { block ->
+                if (block is RepeatBlock && block.id == blockId) {
+                    block.copy(
+                        steps = block.steps.map { s ->
+                            if (s.id == stepId) s.copy(durationSec = durationSec.coerceAtLeast(0)) else s
+                        },
+                    )
+                } else block
+            }
+        }
+
+    private fun updateBlocks(transform: (List<Block>) -> List<Block>) = update {
+        it.copy(config = it.config.copy(advancedPlusBlocks = transform(it.config.advancedPlusBlocks)))
+    }
+
+    private fun newId(): String = UUID.randomUUID().toString()
+
     fun setAudio(a: AudioTrack) = update { it.copy(config = it.config.copy(audio = a)) }
     fun setTheme(t: AppTheme) = update { it.copy(theme = t) }
     fun setLanguage(l: AppLanguage) = update { it.copy(language = l) }

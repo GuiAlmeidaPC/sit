@@ -19,6 +19,7 @@ import com.sit.service.RunPhase
 import com.sit.service.RunStateHolder
 import com.sit.service.TimerService
 import com.sit.ui.active.ActiveRunScreen
+import com.sit.ui.setup.AdvancedPlusCallbacks
 import com.sit.ui.setup.SetupScreen
 import com.sit.ui.setup.SetupViewModel
 import com.sit.ui.summary.SummaryScreen
@@ -57,6 +58,19 @@ class MainActivity : ComponentActivity() {
                             onThemeChange = setupViewModel::setTheme,
                             onLanguageChange = setupViewModel::setLanguage,
                             onStart = { TimerService.start(this@MainActivity, setup.config, setup.language) },
+                            advancedPlusCallbacks = AdvancedPlusCallbacks(
+                                onAddSimple = { setupViewModel.addAdvancedPlusSimpleBlock(it) },
+                                onAddRepeat = setupViewModel::addAdvancedPlusRepeatBlock,
+                                onRemoveBlock = setupViewModel::removeAdvancedPlusBlock,
+                                onMoveBlock = setupViewModel::moveAdvancedPlusBlock,
+                                onSimpleTypeChange = setupViewModel::updateAdvancedPlusSimpleType,
+                                onSimpleDurationChange = setupViewModel::updateAdvancedPlusSimpleDuration,
+                                onRepeatCountChange = setupViewModel::updateAdvancedPlusRepeatCount,
+                                onAddRepeatStep = { id, type -> setupViewModel.addAdvancedPlusRepeatStep(id, type) },
+                                onRemoveRepeatStep = setupViewModel::removeAdvancedPlusRepeatStep,
+                                onRepeatStepTypeChange = setupViewModel::updateAdvancedPlusRepeatStepType,
+                                onRepeatStepDurationChange = setupViewModel::updateAdvancedPlusRepeatStepDuration,
+                            ),
                         )
                         RunPhase.COMPLETED -> SummaryScreen(
                             state = run,

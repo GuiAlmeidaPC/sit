@@ -10,6 +10,22 @@ data class AppStrings(
     val totalWorkoutLabel: String,
     val basicModeLabel: String,
     val advancedModeLabel: String,
+    val advancedPlusModeLabel: String,
+    val warmupBlockLabel: String,
+    val runBlockLabel: String,
+    val walkBlockLabel: String,
+    val restBlockLabel: String,
+    val repeatBlockLabel: String,
+    val addStepLabel: String,
+    val addRepeatLabel: String,
+    val removeBlockLabel: String,
+    val moveUpLabel: String,
+    val moveDownLabel: String,
+    val repeatsLabel: String,
+    val validationBlocksEmpty: String,
+    val validationBlockDuration: String,
+    val validationRepeatCount: String,
+    val validationRepeatEmpty: String,
     val sprintsLabel: String,
     val sprintLabel: String,
     val sprintListLabel: String,
@@ -88,6 +104,18 @@ data class AppStrings(
         ValidationMessage.SPRINT_DURATION_MUST_BE_POSITIVE -> validationSprintPositive
         ValidationMessage.REST_DURATION_MUST_BE_POSITIVE -> validationRestPositive
         ValidationMessage.RUNNING_TIME_MUST_FIT -> validationRunningFits
+        ValidationMessage.BLOCKS_MUST_NOT_BE_EMPTY -> validationBlocksEmpty
+        ValidationMessage.BLOCK_DURATION_MUST_BE_POSITIVE -> validationBlockDuration
+        ValidationMessage.REPEAT_COUNT_MUST_BE_POSITIVE -> validationRepeatCount
+        ValidationMessage.REPEAT_MUST_HAVE_STEPS -> validationRepeatEmpty
+    }
+
+    fun blockTypeLabel(type: com.sit.domain.BlockType): String = when (type) {
+        com.sit.domain.BlockType.WARMUP -> warmupBlockLabel
+        com.sit.domain.BlockType.RUN -> runBlockLabel
+        com.sit.domain.BlockType.WALK -> walkBlockLabel
+        com.sit.domain.BlockType.REST -> restBlockLabel
+        com.sit.domain.BlockType.REPEAT -> repeatBlockLabel
     }
 }
 
@@ -99,6 +127,22 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         totalWorkoutLabel = "Total workout",
         basicModeLabel = "Basic",
         advancedModeLabel = "Advanced",
+        advancedPlusModeLabel = "Advanced+",
+        warmupBlockLabel = "Warmup",
+        runBlockLabel = "Run",
+        walkBlockLabel = "Walk",
+        restBlockLabel = "Rest",
+        repeatBlockLabel = "Repeat",
+        addStepLabel = "Add step",
+        addRepeatLabel = "Add repeat",
+        removeBlockLabel = "Remove block",
+        moveUpLabel = "Move up",
+        moveDownLabel = "Move down",
+        repeatsLabel = "Repeats",
+        validationBlocksEmpty = "Add at least one block to build your workout",
+        validationBlockDuration = "Each block must have a positive duration",
+        validationRepeatCount = "Repeat count must be at least 1",
+        validationRepeatEmpty = "Repeat blocks must contain at least one step",
         sprintsLabel = "Sprints",
         sprintLabel = "Sprint",
         sprintListLabel = "Sprint list",
@@ -160,12 +204,16 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         validationRestPositive = "Rest duration must be positive",
         validationRunningFits = "Sprint + rest time exceeds (or leaves <1s/cycle for) running",
         workoutTemplate = { config ->
-            if (config.mode.name == "ADVANCED") {
-                "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
-                    "Run -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Rest."
-            } else {
-                "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
-                    "Run -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Rest."
+            when (config.mode.name) {
+                "ADVANCED_PLUS" ->
+                    "Workout: ${formatMmSs(config.effectiveTotalSec)} total, " +
+                        "${config.sprintCount} sprint(s)."
+                "ADVANCED" ->
+                    "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
+                        "Run -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Rest."
+                else ->
+                    "Workout: ${config.sprintCount} cycles of ${formatMmSs(config.individualRunningSec())} " +
+                        "Run -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Rest."
             }
         },
         cycleTemplate = { current, total -> "Cycle $current of $total" },
@@ -178,6 +226,22 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         totalWorkoutLabel = "Treino total",
         basicModeLabel = "Basico",
         advancedModeLabel = "Avancado",
+        advancedPlusModeLabel = "Avancado+",
+        warmupBlockLabel = "Aquecimento",
+        runBlockLabel = "Sprint",
+        walkBlockLabel = "Caminhada",
+        restBlockLabel = "Descanso",
+        repeatBlockLabel = "Repetir",
+        addStepLabel = "Adicionar passo",
+        addRepeatLabel = "Adicionar repeticao",
+        removeBlockLabel = "Remover bloco",
+        moveUpLabel = "Mover para cima",
+        moveDownLabel = "Mover para baixo",
+        repeatsLabel = "Repeticoes",
+        validationBlocksEmpty = "Adicione pelo menos um bloco para montar o treino",
+        validationBlockDuration = "Cada bloco deve ter uma duracao positiva",
+        validationRepeatCount = "O numero de repeticoes deve ser pelo menos 1",
+        validationRepeatEmpty = "Blocos de repeticao precisam ter ao menos um passo",
         sprintsLabel = "Sprints",
         sprintLabel = "Sprint",
         sprintListLabel = "Lista de sprints",
@@ -239,12 +303,16 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
         validationRestPositive = "A duracao do descanso deve ser positiva",
         validationRunningFits = "Sprint + descanso excedem o treino (ou deixam <1s/ciclo para corrida)",
         workoutTemplate = { config ->
-            if (config.mode.name == "ADVANCED") {
-                "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
-                    "Corrida -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
-            } else {
-                "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
-                    "Corrida -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
+            when (config.mode.name) {
+                "ADVANCED_PLUS" ->
+                    "Treino: ${formatMmSs(config.effectiveTotalSec)} no total, " +
+                        "${config.sprintCount} sprint(s)."
+                "ADVANCED" ->
+                    "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
+                        "Corrida -> ${formatSprintList(config)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
+                else ->
+                    "Treino: ${config.sprintCount} ciclos de ${formatMmSs(config.individualRunningSec())} " +
+                        "Corrida -> ${formatMmSs(config.sprintSec)} Sprint -> ${formatMmSs(config.restSec)} Descanso."
             }
         },
         cycleTemplate = { current, total -> "Ciclo $current de $total" },

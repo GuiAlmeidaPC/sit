@@ -8,6 +8,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import com.sit.audio.AudioController
+import com.sit.data.BlocksCodec
 import com.sit.domain.AppLanguage
 import com.sit.domain.AudioTrack
 import com.sit.domain.IntervalType
@@ -66,6 +67,7 @@ class TimerService : Service() {
                 WorkoutMode.valueOf(intent.getStringExtra(EXTRA_MODE) ?: WorkoutMode.BASIC.name)
             }.getOrDefault(WorkoutMode.BASIC),
             advancedSprintSecs = intent.getIntArrayExtra(EXTRA_ADVANCED_SPRINTS)?.toList() ?: emptyList(),
+            advancedPlusBlocks = BlocksCodec.decode(intent.getStringExtra(EXTRA_ADVANCED_PLUS_BLOCKS)),
         )
         if (!config.isValid()) {
             stopSelf()
@@ -198,6 +200,7 @@ class TimerService : Service() {
         private const val EXTRA_LANGUAGE = "language"
         private const val EXTRA_MODE = "mode"
         private const val EXTRA_ADVANCED_SPRINTS = "advanced_sprints"
+        private const val EXTRA_ADVANCED_PLUS_BLOCKS = "advanced_plus_blocks"
 
         fun start(ctx: Context, config: WorkoutConfig, language: AppLanguage) {
             val i = Intent(ctx, TimerService::class.java).apply {
@@ -210,6 +213,7 @@ class TimerService : Service() {
                 putExtra(EXTRA_LANGUAGE, language.name)
                 putExtra(EXTRA_MODE, config.mode.name)
                 putExtra(EXTRA_ADVANCED_SPRINTS, config.advancedSprintSecs.toIntArray())
+                putExtra(EXTRA_ADVANCED_PLUS_BLOCKS, BlocksCodec.encode(config.advancedPlusBlocks))
             }
             ctx.startForegroundService(i)
         }

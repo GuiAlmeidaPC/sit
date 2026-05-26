@@ -29,6 +29,7 @@ class UserPrefsRepository(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val MODE = stringPreferencesKey("mode")
         val ADVANCED_SPRINTS = stringPreferencesKey("advanced_sprints")
+        val ADVANCED_PLUS_BLOCKS = stringPreferencesKey("advanced_plus_blocks")
     }
 
     val flow: Flow<UserPrefs> = context.dataStore.data.map { p ->
@@ -43,6 +44,10 @@ class UserPrefsRepository(private val context: Context) {
                 mode = p[Keys.MODE]?.let(::parseMode) ?: d.config.mode,
                 advancedSprintSecs = p[Keys.ADVANCED_SPRINTS]?.let(::parseAdvancedSprintSecs)
                     ?: d.config.advancedSprintSecs,
+                advancedPlusBlocks = p[Keys.ADVANCED_PLUS_BLOCKS]
+                    ?.let { BlocksCodec.decode(it) }
+                    ?.ifEmpty { d.config.advancedPlusBlocks }
+                    ?: d.config.advancedPlusBlocks,
             ),
             theme = p[Keys.THEME]?.let(::parseTheme) ?: d.theme,
             language = p[Keys.LANGUAGE]?.let(::parseLanguage) ?: d.language,
@@ -60,6 +65,7 @@ class UserPrefsRepository(private val context: Context) {
             p[Keys.LANGUAGE] = prefs.language.name
             p[Keys.MODE] = prefs.config.mode.name
             p[Keys.ADVANCED_SPRINTS] = prefs.config.advancedSprintSecs.joinToString(",")
+            p[Keys.ADVANCED_PLUS_BLOCKS] = BlocksCodec.encode(prefs.config.advancedPlusBlocks)
         }
     }
 
